@@ -1,0 +1,48 @@
+# Production compose file for Dokploy.
+# In Dokploy set "Compose Path" to ./docker-compose.dokploy.yml.
+# Routing (set in Dokploy's Domains tab, not here):
+#   optimus.jmistry.com        -> service "frontend", port 3000
+#   optimus.jmistry.com/api    -> service "backend",  port 8000
+#   optimus.jmistry.com/docs   -> service "backend",  port 8000 (optional)
+#   optimus.jmistry.com/openapi.json -> service "backend", port 8000 (optional, needed by /docs)
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    expose:
+      - "8000"
+    volumes:
+      - optimus-data:/app/data
+    environment:
+      DATABASE_URL: sqlite:///data/inventory.db
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://optimus.jmistry.com}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the Dokploy Environment tab}
+      DEMO_NUM_STORES: ${DEMO_NUM_STORES:-5}
+      DEMO_NUM_SKUS: ${DEMO_NUM_SKUS:-200}
+      DEMO_DAYS_HISTORY: ${DEMO_DAYS_HISTORY:-60}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # First boot generates the demo data set, which takes a while
+      start_period: 120s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://optimus.jmistry.com}
+    restart: unless-stopped
+    expose:
+      - "3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  optimus-data:
