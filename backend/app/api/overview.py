@@ -19,6 +19,18 @@ from ..services.transfer_optimizer import get_transfer_opportunities_summary
 router = APIRouter()
 
 
+@router.get("/stores")
+async def list_stores(db: Session = Depends(get_db)):
+    """
+    List all stores (used by the store pickers in the UI)
+    """
+    stores = db.query(Store).order_by(Store.id).all()
+    return [
+        {"id": s.id, "name": s.name, "location": s.location}
+        for s in stores
+    ]
+
+
 @router.get("/overview")
 async def get_overview(
     store_id: Optional[int] = Query(None, description="Filter by store ID"),

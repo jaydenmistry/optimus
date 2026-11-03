@@ -22,6 +22,7 @@ echo "API docs:"
 check GET /docs; check GET /openapi.json
 echo "API (read):"
 check GET /api/health
+check GET /api/stores
 check GET /api/overview
 check GET "/api/overview?store_id=$STORE&risk_only=true&limit=10"
 check GET /api/alerts
