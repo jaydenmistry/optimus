@@ -7,21 +7,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# curl is used by the container healthcheck
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY . .
+# Unprivileged user for the server process (see docker-entrypoint.sh)
+RUN groupadd --system app && useradd --system --gid app --no-create-home app
 
-# SQLite database lives here; mount a volume on it to persist data
-RUN mkdir -p /app/data
+COPY --chown=root:root . .
+RUN chmod 0755 /app/docker-entrypoint.sh \
+    && mkdir -p /app/data && chown app:app /app/data
 VOLUME ["/app/data"]
 
 EXPOSE 8000
 
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 # Single worker on purpose: SQLite plus the demo-data seeding at startup
-# would race with several workers.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
+# would race with several workers. --no-server-header hides the uvicorn
+# version from responses.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*", "--no-server-header"]

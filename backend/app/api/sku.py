@@ -1,7 +1,7 @@
 """
 SKU detail API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
@@ -24,7 +24,7 @@ router = APIRouter()
 async def get_sku_detail(
     store_id: int,
     sku_id: int,
-    days_history: int = 30,
+    days_history: int = Query(30, ge=1, le=120),
     db: Session = Depends(get_db)
 ):
     """

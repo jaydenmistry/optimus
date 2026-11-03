@@ -26,7 +26,8 @@ Deployment files:
 | File | Purpose |
 |------|---------|
 | `docker-compose.dokploy.yml` | Production compose file Dokploy deploys |
-| `backend/Dockerfile.prod` | Backend image (Python 3.11, uvicorn, single worker) |
+| `backend/Dockerfile.prod` | Backend image (Python 3.11, uvicorn, single worker, non-root) |
+| `backend/docker-entrypoint.sh` | Hands the data volume to the unprivileged `app` user, then starts the server as that user |
 | `frontend/Dockerfile.prod` | Multi-stage Next.js image using `output: 'standalone'` |
 | `backend/.dockerignore`, `frontend/.dockerignore` | Keep local junk out of the build context |
 
@@ -100,26 +101,30 @@ repo URL plus an SSH deploy key instead.)
 Open the service's **Environment** tab and paste:
 
 ```env
-SECRET_KEY=<paste a long random string>
+ADMIN_TOKEN=<a long random string>
+TELEMETRY_API_KEY=<a different long random string>
 NEXT_PUBLIC_API_URL=https://optimus.jmistry.com
 CORS_ORIGINS=https://optimus.jmistry.com
 ```
 
-Generate a secret with:
+Generate each secret with:
 
 ```bash
 openssl rand -hex 32
 ```
 
-Only `SECRET_KEY` is required. The deploy fails on purpose if it's missing. The
-other two already default to `https://optimus.jmistry.com`. Optional tuning for
-the demo data generator:
+What they do:
 
-```env
-DEMO_NUM_STORES=5
-DEMO_NUM_SKUS=200
-DEMO_DAYS_HISTORY=60
-```
+| Variable | Purpose | If you leave it empty |
+|----------|---------|-----------------------|
+| `ADMIN_TOKEN` | Required to wipe and regenerate demo data (the Admin page asks for it). | Regenerating is disabled on the public site. |
+| `TELEMETRY_API_KEY` | Sensors must send it as the `X-API-Key` header to post readings. | Sensor ingestion is disabled. |
+| `DOCS_ENABLED` | Set to `false` to hide `/docs`, `/redoc` and `/openapi.json`. | Docs stay on (default `true`). |
+| `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS` | Public URL of the site. | Default to `https://optimus.jmistry.com`. |
+
+The compose file sets `ENVIRONMENT=production`, which is what makes an empty
+secret mean "disabled" rather than "open". `SECRET_KEY` is no longer needed;
+nothing reads it, so you can delete it from the Environment tab.
 
 Dokploy writes these into a `.env` file next to the compose file, and the
 compose file reads them through `${VAR}` substitution. Click **Save**.
@@ -205,23 +210,42 @@ section (or `docker volume rm <name>` after stopping the app) and redeploy.
 ## 11. Sending real sensor data (hardware bridge)
 
 The Arduino bridge and the simulator default to `http://localhost:8000`. Point
-them at production instead:
+them at production and give them the `TELEMETRY_API_KEY` value:
 
 ```bash
-python hardware/telemetry_bridge.py --api https://optimus.jmistry.com/api/telemetry --store-id 1
+TELEMETRY_API_KEY=<your key> python hardware/telemetry_bridge.py --api https://optimus.jmistry.com/api/telemetry --store-id 1
 ```
 
-For `simulate_sensors.sh`, change `API_URL` at the top of the script to
-`https://optimus.jmistry.com/api/telemetry`.
+```bash
+API_URL=https://optimus.jmistry.com/api/telemetry TELEMETRY_API_KEY=<your key> ./simulate_sensors.sh
+```
 
-Note that the telemetry endpoint has no authentication, so anyone who knows the
-URL can post readings.
+The bridge also applies the cooler calibration (`--cooler-offset`, default
+`-20`°C), because the demo sensor sits at room temperature. Pass
+`--cooler-offset 0` if it's actually inside a cooler.
+
+## 12. Security
+
+Both containers run as unprivileged users on a read-only filesystem with all
+Linux capabilities dropped, except the three the backend's entrypoint needs to
+hand the data volume to its `app` user. Every response carries security
+headers (a nonce-based Content-Security-Policy on pages, plus HSTS,
+`nosniff`, `frame-ancestors 'none'` and others). To check a deployment:
+
+```bash
+./check_endpoints.sh
+```
+
+It verifies every page and API route, the security headers, and that the
+protected write endpoints reject requests without credentials.
 
 ## Troubleshooting
 
 | Symptom | Likely cause / fix |
 |---------|--------------------|
-| Deploy fails with `Set SECRET_KEY in the Dokploy Environment tab` | Add `SECRET_KEY` in the Environment tab and redeploy. |
+| "This action is disabled. Set ADMIN_TOKEN…" on the Admin page | Add `ADMIN_TOKEN` in the Environment tab and redeploy. Same for `TELEMETRY_API_KEY` and sensor posts. |
+| Sensors get `401` | The `X-API-Key` they send doesn't match `TELEMETRY_API_KEY`. |
+| Data volume permission errors after upgrading | The backend entrypoint fixes ownership on start. Make sure the compose file still has `cap_add: CHOWN, SETUID, SETGID` on the backend. |
 | Deploy builds the dev setup / runs `npm run dev` | Compose Path is still `./docker-compose.yml`. Set it to `./docker-compose.dokploy.yml`. |
 | Frontend build killed / `exit code 137` | Server ran out of memory during `next build`. Add swap or use a bigger box. |
 | Page loads but shows "API Error" / no data | The `/api` domain entry is missing, points to the wrong service, or has **Strip Path** on. Check `curl https://optimus.jmistry.com/api/health`. |

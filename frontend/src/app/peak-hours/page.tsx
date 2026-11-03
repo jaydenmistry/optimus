@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AlertTriangle, BarChart3, CheckCircle2, Flame, Timer } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { PeakHoursDashboard, PrepRecommendation } from '@/lib/types';
@@ -37,10 +37,9 @@ const PEAKS = [
 
 export default function PeakHoursPage() {
   const stores = useStores();
-  const [storeId, setStoreId] = useState<number>(1);
-  useEffect(() => {
-    if (stores.length && !stores.some((s) => s.id === storeId)) setStoreId(stores[0].id);
-  }, [stores, storeId]);
+  const [selectedId, setStoreId] = useState<number>(1);
+  // Fall back to the first store if the selection doesn't exist (e.g. after a data reset)
+  const storeId = stores.length && !stores.some((s) => s.id === selectedId) ? stores[0].id : selectedId;
 
   const dash = useAsync(() => api.getPeakHoursDashboard(storeId), [storeId]);
   useInterval(() => dash.reload({ silent: true }), 60000);

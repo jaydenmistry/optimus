@@ -13,6 +13,7 @@ from ..services.forecasting import (
     calculate_days_of_cover,
     predict_stockout_date
 )
+from ..services.request_cache import with_request_cache
 from ..services.confidence_scorer import calculate_confidence_score
 from ..services.transfer_optimizer import get_transfer_opportunities_summary
 
@@ -32,11 +33,12 @@ async def list_stores(db: Session = Depends(get_db)):
 
 
 @router.get("/overview")
+@with_request_cache
 async def get_overview(
     store_id: Optional[int] = Query(None, description="Filter by store ID"),
     risk_only: bool = Query(False, description="Show only high-risk items"),
-    min_confidence: int = Query(0, description="Minimum confidence score"),
-    limit: int = Query(100, description="Maximum results"),
+    min_confidence: int = Query(0, ge=0, le=100, description="Minimum confidence score"),
+    limit: int = Query(100, ge=1, le=200, description="Maximum results"),
     db: Session = Depends(get_db)
 ):
     """

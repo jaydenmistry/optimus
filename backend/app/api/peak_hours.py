@@ -83,7 +83,7 @@ async def get_peak_hours_dashboard(
 @router.get("/prep-schedule/{store_id}")
 async def get_prep_schedule_endpoint(
     store_id: int,
-    prep_lead_time: int = Query(2, description="Prep lead time in hours"),
+    prep_lead_time: int = Query(2, ge=0, le=12, description="Prep lead time in hours"),
     db: Session = Depends(get_db)
 ):
     """

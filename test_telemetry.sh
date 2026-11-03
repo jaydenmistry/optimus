@@ -26,7 +26,7 @@ echo ""
 # Test 2: Post a test telemetry reading
 echo "Test 2: POST Telemetry Reading"
 POST_RESULT=$(curl -s -X POST http://localhost:8000/api/telemetry \
-    -H "Content-Type: application/json" \
+    -H "Content-Type: application/json" -H "X-API-Key: ${TELEMETRY_API_KEY:-}" \
     -d '{"store_id":1,"sensor":"cooler_temp_c","value":28.5}')
 
 if echo "$POST_RESULT" | grep -q '"success":true'; then
@@ -75,7 +75,7 @@ echo ""
 # Test 5: Post a critical reading for demo
 echo "Test 5: Simulate Critical Alert"
 CRITICAL_POST=$(curl -s -X POST http://localhost:8000/api/telemetry \
-    -H "Content-Type: application/json" \
+    -H "Content-Type: application/json" -H "X-API-Key: ${TELEMETRY_API_KEY:-}" \
     -d '{"store_id":1,"sensor":"cooler_temp_c","value":31.6}')
 
 if echo "$CRITICAL_POST" | grep -q '"success":true'; then

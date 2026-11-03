@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Bar,
   BarChart,
@@ -15,6 +15,7 @@ import {
   Area,
 } from 'recharts';
 import { useTheme } from '@/lib/theme';
+import { useIsClient } from '@/lib/hooks';
 
 interface Palette {
   accent: string;
@@ -33,12 +34,16 @@ function readVar(name: string, alpha = 1) {
   return raw ? `rgb(${raw} / ${alpha})` : '#888';
 }
 
-/** Chart colors pulled from the CSS tokens, refreshed when the theme flips */
+/**
+ * Chart colors pulled from the CSS tokens, recomputed when the theme flips.
+ * Returns null during server rendering, where there are no computed styles.
+ */
 export function useChartPalette(): Palette | null {
   const { resolved } = useTheme();
-  const [palette, setPalette] = useState<Palette | null>(null);
-  useEffect(() => {
-    setPalette({
+  const isClient = useIsClient();
+  return useMemo(() => {
+    if (!isClient) return null;
+    return {
       accent: readVar('accent'),
       accentSoft: readVar('accent', resolved === 'dark' ? 0.55 : 0.4),
       orange: readVar('orange'),
@@ -48,9 +53,8 @@ export function useChartPalette(): Palette | null {
       axis: readVar('label-secondary'),
       label: readVar('label'),
       surface: readVar('elevated'),
-    });
-  }, [resolved]);
-  return palette;
+    };
+  }, [resolved, isClient]);
 }
 
 function ChartTooltip({
