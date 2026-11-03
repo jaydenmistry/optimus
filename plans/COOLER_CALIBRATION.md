@@ -1,5 +1,7 @@
 # Cooler Temperature Sensor Calibration
 
+> **Update:** the -20°C offset now lives in `hardware/telemetry_bridge.py` (`--cooler-offset`, default -20) instead of the frontend. Demo data and `simulate_sensors.sh` already send real cooler temperatures (2–4°C), so offsetting every reading in the UI made them show about 0°F / Critical. Calibrating at the bridge means every stored reading is a real cooler temperature and the dashboard displays it as-is. The notes below describe the original frontend approach.
+
 ## Problem
 
 The real IoT temperature sensor reads **room temperature** (~74°F / ~23°C) because it's not actually inside a cooler. For a realistic demo, we need to display what a **real cooler temperature** would be (~38°F / ~3°C).

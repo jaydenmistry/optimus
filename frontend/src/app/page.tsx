@@ -27,6 +27,7 @@ import {
   formatSensorValue,
   getSensorStatus,
   sensorKind,
+  visibleSensors,
   type SensorStatus,
 } from '@/lib/telemetry';
 import {
@@ -259,7 +260,7 @@ function SensorsSection({
   sensors?: Record<string, { value: number; unit: string | null; age_seconds: number }>;
   loading: boolean;
 }) {
-  const entries = Object.entries(sensors ?? {}).slice(0, 4);
+  const entries = visibleSensors(sensors ?? {});
   if (!loading && entries.length === 0) return null;
 
   return (
