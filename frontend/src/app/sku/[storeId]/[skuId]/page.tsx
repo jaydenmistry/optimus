@@ -1,373 +1,357 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  CalendarClock,
+  CheckCircle2,
+  ClipboardCheck,
+  Gauge,
+  Minus,
+  Package,
+  PackagePlus,
+  SearchX,
+  TrendingUp,
+} from 'lucide-react';
 import { api } from '@/lib/api';
-import type { SKUDetail, HourlyForecast } from '@/lib/types';
-import { formatNumber, formatDate, getConfidenceColor } from '@/lib/utils';
+import { formatDate, formatNumber, formatTime } from '@/lib/utils';
+import { useAsync } from '@/lib/hooks';
+import {
+  Card,
+  Container,
+  EmptyState,
+  ErrorCard,
+  GradeRing,
+  IconTile,
+  KeyValue,
+  ListRow,
+  PageHeader,
+  Section,
+  SegmentedControl,
+  Skeleton,
+  Spinner,
+  StatTile,
+  StatusBadge,
+  StatusDot,
+  confidenceTone,
+  type Tone,
+} from '@/components/ui';
+import { DailyDemandChart, HourlyDemandChart, LegendItem } from '@/components/ui/charts';
+
+type View = 'daily' | 'hourly';
+
+/** Only warn about a stockout when it's close enough to act on */
+const STOCKOUT_ALERT_DAYS = 7;
+
+const SEVERITY_TONE: Record<string, Tone> = { critical: 'red', high: 'orange', medium: 'yellow', low: 'gray' };
 
 export default function SKUDetailPage() {
   const params = useParams();
-  const storeId = parseInt(params.storeId as string);
-  const skuId = parseInt(params.skuId as string);
+  const storeId = parseInt(params.storeId as string, 10);
+  const skuId = parseInt(params.skuId as string, 10);
+  const [view, setView] = useState<View>('daily');
 
-  const [data, setData] = useState<SKUDetail | null>(null);
-  const [hourlyData, setHourlyData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [hourlyLoading, setHourlyLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showHourly, setShowHourly] = useState(false);
+  const detail = useAsync(() => api.getSKUDetail(storeId, skuId, 30), [storeId, skuId]);
+  const [hourlyRequested, setHourlyRequested] = useState(false);
+  const hourly = useAsync(
+    () => (hourlyRequested ? api.getSKUHourlyForecast(storeId, skuId) : Promise.resolve(null)),
+    [storeId, skuId, hourlyRequested]
+  );
 
-  useEffect(() => {
-    loadData();
-  }, [storeId, skuId]);
-
-  async function loadData() {
-    try {
-      setLoading(true);
-      const response = await api.getSKUDetail(storeId, skuId, 30);
-      setData(response);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
+  function changeView(v: View) {
+    setView(v);
+    if (v === 'hourly') setHourlyRequested(true);
   }
 
-  async function loadHourlyForecast() {
-    if (hourlyData) {
-      setShowHourly(!showHourly);
-      return;
-    }
+  const data = detail.data;
 
-    try {
-      setHourlyLoading(true);
-      const response = await api.getSKUHourlyForecast(storeId, skuId);
-      setHourlyData(response);
-      setShowHourly(true);
-    } catch (err) {
-      console.error('Failed to load hourly forecast:', err);
-    } finally {
-      setHourlyLoading(false);
-    }
-  }
+  const daily = useMemo(() => {
+    if (!data) return { points: [], todayLabel: undefined as string | undefined };
+    const label = (d: string) => formatDate(d, { year: false });
+    const history = data.history.map((h) => ({ label: label(h.date), sales: h.sales, onHand: h.on_hand }));
+    const forecast = data.forecast.next_7_days.map((f) => ({ label: label(f.date), forecast: f.predicted_demand }));
+    return { points: [...history, ...forecast], todayLabel: forecast[0]?.label };
+  }, [data]);
 
-  if (loading) {
+  if (detail.loading) return <DetailSkeleton />;
+
+  if (detail.error || !data) {
     return (
-      <main className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading SKU details...</p>
-          </div>
-        </div>
-      </main>
+      <Container>
+        <PageHeader back={{ href: '/', label: 'Overview' }} title="Item" />
+        <ErrorCard message={detail.error ?? 'Item not found'} onRetry={() => detail.reload()} />
+      </Container>
     );
   }
 
-  if (error || !data) {
-    return (
-      <main className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-red-800 font-semibold mb-2">Error Loading Data</h2>
-            <p className="text-red-600">{error || 'SKU not found'}</p>
-            <Link href="/" className="mt-4 inline-block px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
-              Back to Overview
-            </Link>
+  const { current_state: state, recommendations: recs, confidence_details: conf } = data;
+  const hasAnyRec = recs.reorder.recommended || recs.transfer.recommended || recs.cycle_count.recommended;
+
+  return (
+    <Container>
+      <PageHeader
+        back={{ href: '/', label: 'Overview' }}
+        title={data.sku.name}
+        subtitle={`${data.store.name} · ${data.sku.category}`}
+        eyebrow={data.sku.is_perishable ? <StatusBadge tone="orange">Perishable</StatusBadge> : undefined}
+      />
+
+      {state.stockout_date && state.days_of_cover <= STOCKOUT_ALERT_DAYS && (
+        <div
+          role="status"
+          className="mb-6 flex items-start gap-3 rounded-card bg-sys-red/10 p-4 ring-1 ring-sys-red/20"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-sys-red" aria-hidden />
+          <div>
+            <p className="text-headline">Predicted stockout on {formatDate(state.stockout_date)}</p>
+            <p className="text-footnote text-label-secondary">
+              {recs.reorder.recommended
+                ? `Reorder ${recs.reorder.qty} units${recs.transfer.recommended ? ' or transfer from a nearby store' : ''}.`
+                : 'Review the recommendations below.'}
+            </p>
           </div>
         </div>
-      </main>
-    );
+      )}
+
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <StatTile label="On Hand" tone="blue" icon={<Package />} value={state.on_hand} caption="units" />
+        <StatTile label="Daily Demand" tone="accent" icon={<TrendingUp />} value={formatNumber(state.daily_demand, 1)} caption="units per day" />
+        <StatTile
+          label="Days of Cover"
+          tone={state.days_of_cover < 2 ? 'red' : state.days_of_cover < 4 ? 'orange' : 'green'}
+          icon={<CalendarClock />}
+          value={formatNumber(state.days_of_cover, 1)}
+          caption={state.stockout_date ? `runs out ${formatDate(state.stockout_date, { year: false })}` : 'at current demand'}
+        />
+        <StatTile
+          label="Confidence"
+          tone={confidenceTone(state.confidence_score)}
+          icon={<Gauge />}
+          value={
+            <span className="flex items-center gap-3">
+              {formatNumber(state.confidence_score, 0)}%
+              <GradeRing score={state.confidence_score} grade={state.confidence_grade} size={34} stroke={3.5} />
+            </span>
+          }
+          caption="inventory accuracy"
+        />
+      </div>
+
+      <div className="grid gap-x-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Section
+            title="Demand"
+            description={view === 'daily' ? 'Last 30 days of sales and the next 7 days of forecast' : 'Predicted demand for the rest of today'}
+            action={
+              <SegmentedControl
+                label="Demand view"
+                size="sm"
+                value={view}
+                onChange={changeView}
+                options={[
+                  { value: 'daily', label: 'Daily' },
+                  { value: 'hourly', label: 'Hourly' },
+                ]}
+              />
+            }
+          >
+            <div className="p-4 sm:p-5">
+              {view === 'daily' ? (
+                <>
+                  <DailyDemandChart data={daily.points} todayLabel={daily.todayLabel} />
+                  <div className="mt-3 flex flex-wrap items-center gap-4">
+                    <LegendItem color="bg-accent" label="Sold" />
+                    <LegendItem color="bg-accent/40 dark:bg-accent/55" label="Forecast" />
+                    <LegendItem color="bg-sys-blue" label="On hand" />
+                  </div>
+                  <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-separator/70 pt-4 sm:grid-cols-4">
+                    <KeyValue label="Weekday avg" value={formatNumber(data.forecast.weekday_avg, 1)} />
+                    <KeyValue label="Weekend avg" value={formatNumber(data.forecast.weekend_avg, 1)} />
+                    <KeyValue label="Forecast confidence" value={<span className="capitalize">{data.forecast.confidence}</span>} />
+                    <KeyValue label="Data points" value={data.forecast.data_points} />
+                  </dl>
+                </>
+              ) : hourly.loading || !hourly.data ? (
+                hourly.error ? (
+                  <ErrorCard message={hourly.error} onRetry={() => hourly.reload()} className="shadow-none" />
+                ) : (
+                  <div className="flex h-[260px] items-center justify-center text-label-secondary">
+                    <Spinner />
+                  </div>
+                )
+              ) : (
+                <HourlyView data={hourly.data} />
+              )}
+            </div>
+          </Section>
+
+          <Section title="Anomalies" description="Unexplained drops in stock over the last 30 days">
+            {data.anomalies.length === 0 ? (
+              <EmptyState icon={<CheckCircle2 />} title="No anomalies" message="Stock movements match recorded sales and receipts." className="py-8" />
+            ) : (
+              <>
+                <ul>
+                  {data.anomalies.slice(0, 5).map((a, i) => (
+                    <li key={i} className="list-row flex items-start gap-3 pl-4 pr-4">
+                      <StatusDot tone={SEVERITY_TONE[a.severity] ?? 'gray'} className="mt-[1.15rem]" />
+                      <div className="list-row-body min-w-0 flex-1 py-3">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <p className="text-subhead font-semibold">{formatDate(a.date)}</p>
+                          <p className="tabular text-footnote text-label-secondary">
+                            {formatNumber(a.residual, 1)} units · <span className="capitalize">{a.severity}</span>
+                          </p>
+                        </div>
+                        <p className="mt-0.5 text-subhead text-label-secondary">{a.explanation}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {data.anomaly_patterns.has_pattern && (
+                  <div className="hairline-t flex items-start gap-3 bg-sys-orange/10 px-4 py-3">
+                    <SearchX className="mt-0.5 h-4 w-4 shrink-0 text-sys-orange" aria-hidden />
+                    <p className="text-footnote">
+                      <span className="font-semibold">Systematic pattern:</span> {data.anomaly_patterns.frequency} anomalies in 30 days,{' '}
+                      {formatNumber(data.anomaly_patterns.total_loss, 0)} units lost in total.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </Section>
+        </div>
+
+        <div>
+          <Section title="Recommendations">
+            {!hasAnyRec && (
+              <ListRow icon={<IconTile tone="green"><CheckCircle2 /></IconTile>} title="No action needed" subtitle="Stock and accuracy look healthy." />
+            )}
+            {recs.reorder.recommended && (
+              <ListRow
+                icon={<IconTile tone="blue"><PackagePlus /></IconTile>}
+                title={`Reorder ${recs.reorder.qty} units`}
+                subtitle={recs.reorder.reason}
+              />
+            )}
+            {recs.transfer.recommended && (
+              <ListRow
+                icon={<IconTile tone="green"><ArrowLeftRight /></IconTile>}
+                title="Transfer available"
+                subtitle={recs.transfer.reason}
+                href="/transfers"
+                chevron
+              />
+            )}
+            {recs.cycle_count.recommended && (
+              <ListRow
+                icon={<IconTile tone="yellow"><ClipboardCheck /></IconTile>}
+                title={`Cycle count · ${recs.cycle_count.priority} priority`}
+                subtitle={recs.cycle_count.reason}
+              />
+            )}
+          </Section>
+
+          <Section
+            title="Confidence"
+            footer="How much we trust that the on-hand number matches what's on the shelf. A low score means you should schedule a physical count."
+          >
+            <div className="flex items-center gap-4 p-4">
+              <GradeRing score={conf.score} grade={conf.grade} size={64} stroke={6} />
+              <div>
+                <p className="tabular text-title-2">{formatNumber(conf.score, 0)}%</p>
+                <p className="text-footnote text-label-secondary">
+                  {conf.days_since_count != null ? `Last counted ${conf.days_since_count} days ago` : 'Never cycle counted'}
+                </p>
+              </div>
+            </div>
+            {conf.deductions.length > 0 && (
+              <ul className="hairline-t">
+                {conf.deductions.map((d, i) => (
+                  <li key={i} className="list-row flex items-start gap-3 pl-4 pr-4">
+                    <Minus className="mt-3.5 h-4 w-4 shrink-0 text-sys-red" aria-hidden />
+                    <p className="list-row-body flex-1 py-3 text-subhead">{d}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        </div>
+      </div>
+    </Container>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function HourlyView({ data }: { data: NonNullable<Awaited<ReturnType<typeof api.getSKUHourlyForecast>>> }) {
+  const points = data.hourly_forecast.map((f) => ({
+    label: f.hour_display,
+    demand: f.predicted_demand || 0,
+    isPeak: f.is_peak_hour,
+    stockout: f.will_stockout_this_hour,
+  }));
+  const allZero = points.every((p) => p.demand === 0);
+  const pred = data.stockout_prediction;
+
+  if (points.length === 0) {
+    return <EmptyState title="No hours left today" message="Check back tomorrow for the next hourly forecast." className="py-8" />;
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{data.sku.name}</h1>
-              <p className="text-gray-600 mt-1">
-                {data.store.name} • {data.sku.category}
-                {data.sku.is_perishable && <span className="ml-2 text-orange-600">• Perishable</span>}
-              </p>
-            </div>
-            <Link
-              href="/"
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              ← Back to Overview
-            </Link>
-          </div>
-        </div>
+    <>
+      <dl className="mb-4 grid grid-cols-2 gap-4">
+        <KeyValue label="On hand now" value={`${data.current_on_hand} units`} />
+        <KeyValue
+          label="Predicted stockout"
+          value={
+            pred.will_stockout && pred.stockout_time ? (
+              <span className="text-sys-red">
+                {formatTime(pred.stockout_time)}
+                {pred.is_during_peak && <span className="ml-1.5 text-footnote font-medium">during {pred.peak_period} rush</span>}
+              </span>
+            ) : (
+              'None today'
+            )
+          }
+        />
+      </dl>
+      {allZero && (
+        <p className="mb-4 rounded-xl bg-sys-yellow/15 px-3.5 py-2.5 text-footnote">
+          No hourly history for this item, so values are estimated from daily demand. Proteins and salsas have real hourly
+          patterns.
+        </p>
+      )}
+      <HourlyDemandChart data={points} height={220} />
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        <LegendItem color="bg-accent" label="Regular" />
+        <LegendItem color="bg-sys-orange" label="Peak (11–2, 5–8)" />
+        <LegendItem color="bg-sys-red" label="Stockout" />
       </div>
-
-      <div className="max-w-7xl mx-auto px-8 py-6">
-        {/* Current State Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white border rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">On Hand</p>
-            <p className="text-2xl font-bold text-gray-900">{data.current_state.on_hand}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Daily Demand</p>
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(data.current_state.daily_demand, 1)}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Days of Cover</p>
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(data.current_state.days_of_cover, 1)}</p>
-          </div>
-          <div className="bg-white border rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Confidence Score</p>
-            <p className={`text-2xl font-bold ${getConfidenceColor(data.current_state.confidence_score)}`}>
-              {formatNumber(data.current_state.confidence_score, 0)}% ({data.current_state.confidence_grade})
-            </p>
-          </div>
-        </div>
-
-        {/* Forecast Information */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Demand Forecast</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Weekday Average</p>
-              <p className="text-lg font-semibold text-gray-900">{formatNumber(data.forecast.weekday_avg, 1)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Weekend Average</p>
-              <p className="text-lg font-semibold text-gray-900">{formatNumber(data.forecast.weekend_avg, 1)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Forecast Confidence</p>
-              <p className="text-lg font-semibold text-gray-900 capitalize">{data.forecast.confidence}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Data Points</p>
-              <p className="text-lg font-semibold text-gray-900">{data.forecast.data_points}</p>
-            </div>
-          </div>
-
-          {data.current_state.stockout_date && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded">
-              <p className="text-sm font-medium text-red-800">
-                ⚠️ Predicted Stockout: {formatDate(data.current_state.stockout_date)}
-              </p>
-            </div>
-          )}
-
-          {/* Hourly Forecast Toggle */}
-          <div className="mt-6 pt-4 border-t">
-            <button
-              onClick={loadHourlyForecast}
-              disabled={hourlyLoading}
-              className="px-4 py-2.5 bg-ncr-primary text-white rounded-lg hover:bg-ncr-primary-dark disabled:bg-gray-400 text-sm font-semibold shadow-sm"
-            >
-              {hourlyLoading ? 'Loading...' : showHourly ? 'Hide Hourly Forecast' : '⏰ View Hourly Forecast (Peak Hours)'}
-            </button>
-          </div>
-        </div>
-
-        {/* Hourly Forecast Section */}
-        {showHourly && hourlyData && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Hourly Demand Forecast</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Predicted demand by hour. Peak hours (lunch 11am–2pm, dinner 5pm–8pm) in orange.
-            </p>
-            {hourlyData.hourly_forecast.every((f: any) => (f.predicted_demand || 0) === 0) && (
-              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                No hourly history for this SKU; values are estimated from daily demand. Items with hourly data (e.g. Proteins, Salsas) show actual patterns.
-              </div>
-            )}
-
-            {/* Current Inventory Status */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-blue-700 mb-1">Current On Hand</p>
-                  <p className="text-2xl font-bold text-blue-900">{hourlyData.current_on_hand} units</p>
-                </div>
-                {hourlyData.stockout_prediction.will_stockout && (
-                  <div>
-                    <p className="text-sm text-red-700 mb-1">Predicted Stockout</p>
-                    <p className="text-lg font-bold text-red-900">
-                      {new Date(hourlyData.stockout_prediction.stockout_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                    </p>
-                    {hourlyData.stockout_prediction.is_during_peak && (
-                      <span className="text-xs font-semibold text-red-600">
-                        ⚠️ DURING {hourlyData.stockout_prediction.peak_period?.toUpperCase()} RUSH
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Hourly Bar Chart */}
-            <div className="space-y-2">
-              {hourlyData.hourly_forecast.map((forecast: any, idx: number) => {
-                const maxDemand = Math.max(...hourlyData.hourly_forecast.map((f: any) => f.predicted_demand || 0), 1);
-                const widthPercent = ((forecast.predicted_demand || 0) / maxDemand) * 100;
-                const willStockout = forecast.will_stockout_this_hour;
-
-                return (
-                  <div key={idx} className="flex items-center space-x-3">
-                    <div className="w-16 text-sm font-medium text-gray-700">
-                      {forecast.hour_display}
-                    </div>
-                    <div className="flex-1">
-                      <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${
-                            willStockout
-                              ? 'bg-red-500'
-                              : forecast.is_peak_hour
-                              ? 'bg-orange-500'
-                              : 'bg-blue-400'
-                          }`}
-                          style={{ width: `${widthPercent}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className="w-24 text-right">
-                      <span className="text-sm font-semibold text-gray-900">
-                        {formatNumber(forecast.predicted_demand, 1)} units
-                      </span>
-                      {forecast.remaining_inventory !== undefined && (
-                        <div className="text-xs text-gray-500">
-                          ({formatNumber(forecast.remaining_inventory, 0)} left)
-                        </div>
-                      )}
-                    </div>
-                    {willStockout && (
-                      <div className="text-xs font-bold text-red-600">
-                        STOCKOUT
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-6 flex items-center justify-center space-x-6 text-sm">
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-blue-400 rounded mr-2"></div>
-                <span className="text-gray-700">Regular Hours</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-orange-500 rounded mr-2"></div>
-                <span className="text-gray-700">Peak Hours</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
-                <span className="text-gray-700">Stockout</span>
-              </div>
-            </div>
-
-            {/* Peak Hours Info */}
-            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600">
-              <span className="font-semibold">Peak Hours:</span> Lunch (11am-2pm) and Dinner (5pm-8pm)
-            </div>
-          </div>
-        )}
-
-        {/* Anomalies */}
-        {data.anomalies && data.anomalies.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Anomalies</h2>
-            <div className="space-y-3">
-              {data.anomalies.slice(0, 5).map((anomaly, idx) => (
-                <div key={idx} className="border-l-4 border-red-400 pl-4 py-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-medium text-gray-900">{formatDate(anomaly.date)}</p>
-                    <span className="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800">
-                      {anomaly.severity.toUpperCase()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700">{anomaly.explanation}</p>
-                  <p className="text-xs text-gray-500 mt-1">Residual: {formatNumber(anomaly.residual, 1)} units</p>
-                </div>
-              ))}
-            </div>
-
-            {data.anomaly_patterns.has_pattern && (
-              <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded">
-                <p className="text-sm font-medium text-orange-800">
-                  🔍 Systematic Pattern Detected: {data.anomaly_patterns.frequency} anomalies in 30 days
-                  (Total loss: {formatNumber(data.anomaly_patterns.total_loss, 0)} units)
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Recommendations */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recommendations</h2>
-          <div className="space-y-4">
-            {/* Reorder Recommendation */}
-            {data.recommendations.reorder.recommended && (
-              <div className="border-l-4 border-blue-400 pl-4 py-3 bg-blue-50">
-                <h3 className="font-semibold text-blue-900 mb-1">Reorder Recommended</h3>
-                <p className="text-sm text-blue-800 mb-2">{data.recommendations.reorder.reason}</p>
-                <p className="text-sm text-blue-700">
-                  <span className="font-medium">Suggested Quantity:</span> {data.recommendations.reorder.qty} units
-                </p>
-              </div>
-            )}
-
-            {/* Transfer Recommendation */}
-            {data.recommendations.transfer.recommended && (
-              <div className="border-l-4 border-green-400 pl-4 py-3 bg-green-50">
-                <h3 className="font-semibold text-green-900 mb-1">Transfer Available</h3>
-                <p className="text-sm text-green-800">{data.recommendations.transfer.reason}</p>
-                <Link
-                  href="/transfers"
-                  className="inline-block mt-2 text-sm text-green-700 hover:underline font-medium"
-                >
-                  View Transfer Recommendations →
-                </Link>
-              </div>
-            )}
-
-            {/* Cycle Count Recommendation */}
-            {data.recommendations.cycle_count.recommended && (
-              <div className="border-l-4 border-yellow-400 pl-4 py-3 bg-yellow-50">
-                <h3 className="font-semibold text-yellow-900 mb-1">
-                  Cycle Count Recommended ({data.recommendations.cycle_count.priority} Priority)
-                </h3>
-                <p className="text-sm text-yellow-800">{data.recommendations.cycle_count.reason}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Confidence Details */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Confidence Score Breakdown</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            How much we trust that the on-hand number matches what’s on the shelf. Low score = schedule a physical count (cycle count).
-          </p>
-          <div className="space-y-2">
-            {data.confidence_details.deductions.map((deduction, idx) => (
-              <div key={idx} className="flex items-center text-sm">
-                <span className="text-red-600 mr-2">−</span>
-                <span className="text-gray-700">{deduction}</span>
-              </div>
-            ))}
-          </div>
-          {data.confidence_details.days_since_count !== null && (
-            <p className="mt-4 text-sm text-gray-600">
-              Last cycle count: {data.confidence_details.days_since_count} days ago
-            </p>
-          )}
-        </div>
-      </div>
-    </main>
+    </>
   );
 }
+
+function DetailSkeleton() {
+  return (
+    <Container>
+      <div className="pb-6 pt-6 sm:pt-10" aria-busy="true" aria-label="Loading item">
+        <Skeleton className="mb-4 h-5 w-24" />
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="mt-3 h-5 w-48" />
+      </div>
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Card key={i} className="p-5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="mt-4 h-8 w-16" />
+          </Card>
+        ))}
+      </div>
+      <Card className="p-5">
+        <Skeleton className="h-[240px] w-full" />
+      </Card>
+    </Container>
+  );
+}
+
