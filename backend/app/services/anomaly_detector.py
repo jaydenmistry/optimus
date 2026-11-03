@@ -8,6 +8,7 @@ from ..models import (
     InventorySnapshot, SalesDaily, ReceiptsDaily, 
     Transfer, AnomalyEvent
 )
+from .request_cache import cached_anomalies
 
 
 def detect_anomalies(
@@ -167,12 +168,16 @@ def find_anomaly_patterns(
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=days)
     
-    anomalies = db.query(AnomalyEvent).filter(
-        AnomalyEvent.store_id == store_id,
-        AnomalyEvent.sku_id == sku_id,
-        AnomalyEvent.ts_date >= start_date,
-        AnomalyEvent.ts_date <= end_date
-    ).order_by(AnomalyEvent.ts_date).all()
+    cached = cached_anomalies(store_id, sku_id, days)
+    if cached is not None:
+        anomalies = sorted((a for a in cached if a.ts_date <= end_date), key=lambda a: a.ts_date)
+    else:
+        anomalies = db.query(AnomalyEvent).filter(
+            AnomalyEvent.store_id == store_id,
+            AnomalyEvent.sku_id == sku_id,
+            AnomalyEvent.ts_date >= start_date,
+            AnomalyEvent.ts_date <= end_date
+        ).order_by(AnomalyEvent.ts_date).all()
     
     if not anomalies:
         return {

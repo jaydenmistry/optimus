@@ -6,6 +6,7 @@ from typing import Dict
 from sqlalchemy.orm import Session
 from ..models import AnomalyEvent, CycleCount, SKU
 from .anomaly_detector import find_anomaly_patterns
+from .request_cache import cached_anomalies, cached_last_count_date, cached_sku
 
 
 def calculate_confidence_score(
@@ -21,7 +22,8 @@ def calculate_confidence_score(
     deductions = []
     
     # Get SKU info
-    sku = db.query(SKU).filter(SKU.id == sku_id).first()
+    hit = cached_sku(sku_id)
+    sku = hit["sku"] if hit is not None else db.query(SKU).filter(SKU.id == sku_id).first()
     if not sku:
         return {"score": 0, "grade": "F", "deductions": ["SKU not found"]}
     
@@ -29,11 +31,13 @@ def calculate_confidence_score(
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=30)
     
-    anomalies = db.query(AnomalyEvent).filter(
-        AnomalyEvent.store_id == store_id,
-        AnomalyEvent.sku_id == sku_id,
-        AnomalyEvent.ts_date >= start_date
-    ).all()
+    anomalies = cached_anomalies(store_id, sku_id, 30)
+    if anomalies is None:
+        anomalies = db.query(AnomalyEvent).filter(
+            AnomalyEvent.store_id == store_id,
+            AnomalyEvent.sku_id == sku_id,
+            AnomalyEvent.ts_date >= start_date
+        ).all()
     
     anomaly_count = len(anomalies)
     if anomaly_count > 0:
@@ -49,13 +53,18 @@ def calculate_confidence_score(
         deductions.append(f"Anomaly magnitude: -{magnitude_penalty:.0f} ({total_residual:.0f} units lost)")
     
     # 3. Days since last cycle count penalty (max -20 points)
-    last_count = db.query(CycleCount).filter(
-        CycleCount.store_id == store_id,
-        CycleCount.sku_id == sku_id
-    ).order_by(CycleCount.ts_date.desc()).first()
+    hit = cached_last_count_date(store_id, sku_id)
+    if hit is not None:
+        last_count_date = hit["date"]
+    else:
+        last_count = db.query(CycleCount).filter(
+            CycleCount.store_id == store_id,
+            CycleCount.sku_id == sku_id
+        ).order_by(CycleCount.ts_date.desc()).first()
+        last_count_date = last_count.ts_date if last_count else None
     
-    if last_count:
-        days_since_count = (datetime.now().date() - last_count.ts_date).days
+    if last_count_date:
+        days_since_count = (datetime.now().date() - last_count_date).days
         count_penalty = min(days_since_count * 0.3, 20)
         score -= count_penalty
         deductions.append(f"Days since count: -{count_penalty:.0f} ({days_since_count} days)")
@@ -65,7 +74,7 @@ def calculate_confidence_score(
     
     # 4. Perishable item penalty (if no recent count)
     if sku.is_perishable:
-        if not last_count or (datetime.now().date() - last_count.ts_date).days > 7:
+        if not last_count_date or (datetime.now().date() - last_count_date).days > 7:
             score -= 10
             deductions.append("Perishable without recent count: -10")
     
@@ -95,7 +104,7 @@ def calculate_confidence_score(
         "grade": grade,
         "deductions": deductions,
         "anomaly_count": anomaly_count,
-        "days_since_count": days_since_count if last_count else None,
+        "days_since_count": days_since_count if last_count_date else None,
         "has_systematic_pattern": pattern["has_pattern"]
     }
 
