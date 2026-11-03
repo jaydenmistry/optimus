@@ -2,7 +2,7 @@
 Database configuration and session management
 """
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from .config import settings
 
@@ -35,3 +35,8 @@ def init_db():
     Initialize database - create all tables
     """
     Base.metadata.create_all(bind=engine)
+    # create_all() skips tables that already exist, so add any indexes that
+    # were introduced after an existing database was created.
+    for table in Base.metadata.sorted_tables:
+        for index in table.indexes:
+            index.create(bind=engine, checkfirst=True)

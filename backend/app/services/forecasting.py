@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..models import SalesDaily, InventorySnapshot
+from .request_cache import cached_sales
 
 
 def calculate_weighted_average(values: List[float], decay: float = 0.95) -> float:
@@ -32,6 +33,10 @@ def get_sales_history(
     days: int = 28
 ) -> List[Dict]:
     """Get sales history for a store/SKU"""
+    cached = cached_sales(store_id, sku_id, days)
+    if cached is not None:
+        return cached
+
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=days)
     

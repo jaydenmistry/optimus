@@ -1,7 +1,7 @@
 """
 Hourly sales model for peak hour forecasting
 """
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
 from ..database import Base
 
@@ -10,6 +10,8 @@ class SalesHourly(Base):
     """Hourly sales transactions model for intra-day forecasting"""
     
     __tablename__ = "sales_hourly"
+    # Per-item lookups filter on store + SKU + date
+    __table_args__ = (Index("ix_sales_hourly_store_sku_date", "store_id", "sku_id", "ts_datetime"),)
     
     id = Column(Integer, primary_key=True, index=True)
     store_id = Column(Integer, ForeignKey("stores.id"), nullable=False)
