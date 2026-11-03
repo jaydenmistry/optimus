@@ -12,6 +12,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# ...but not the frontend source folder of the same name
+!frontend/src/lib/
 parts/
 sdist/
 var/
@@ -85,3 +87,6 @@ coverage/
 .cache/
 temp/
 tmp/
+
+# TypeScript
+*.tsbuildinfo

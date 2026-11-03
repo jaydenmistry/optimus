@@ -2,24 +2,138 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens. Values are RGB channels consumed by tailwind.config.ts.
+ * Light is the default; `.dark` on <html> switches to the dark palette.
+ * The theme script in layout.tsx sets that class before first paint.
+ */
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  color-scheme: light;
+
+  --canvas: 242 242 247;
+  --surface: 255 255 255;
+  --elevated: 255 255 255;
+  --fill: 118 118 128;
+  --separator: 216 216 220;
+
+  --label: 29 29 31;
+  --label-secondary: 110 110 115;
+  --label-tertiary: 142 142 147;
+
+  --accent: 91 58 155;
+  --accent-text: 91 58 155;
+  --accent-contrast: 255 255 255;
+
+  --red: 255 59 48;
+  --orange: 255 149 0;
+  --yellow: 255 204 0;
+  --green: 52 199 89;
+  --blue: 0 122 255;
+  --teal: 48 176 199;
+  --gray: 142 142 147;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+.dark {
+  color-scheme: dark;
+
+  --canvas: 0 0 0;
+  --surface: 28 28 30;
+  --elevated: 44 44 46;
+  --fill: 150 150 160;
+  --separator: 56 56 58;
+
+  --label: 245 245 247;
+  --label-secondary: 152 152 159;
+  --label-tertiary: 99 99 102;
+
+  --accent: 124 92 214;
+  --accent-text: 176 150 240;
+  --accent-contrast: 255 255 255;
+
+  --red: 255 69 58;
+  --orange: 255 159 10;
+  --yellow: 255 214 10;
+  --green: 48 209 88;
+  --blue: 10 132 255;
+  --teal: 64 200 224;
+  --gray: 152 152 159;
 }
 
-/* Optimus branding header */
-.ncr-header {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-canvas text-label font-sans text-body antialiased;
+    font-feature-settings: "kern";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Numbers line up in tables and stat tiles */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent-text));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.25);
+  }
+}
+
+@layer utilities {
+  /* Frosted "material" used by the nav bar, tab bar and popovers */
+  .material {
+    background-color: rgb(var(--surface) / 0.72);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .material-thick {
+    background-color: rgb(var(--elevated) / 0.9);
+    -webkit-backdrop-filter: saturate(180%) blur(30px);
+    backdrop-filter: saturate(180%) blur(30px);
+  }
+
+  .hairline-b {
+    box-shadow: inset 0 -0.5px 0 rgb(var(--separator));
+  }
+
+  .hairline-t {
+    box-shadow: inset 0 0.5px 0 rgb(var(--separator));
+  }
+
+  /* Inset separators between grouped-list rows */
+  .list-row:not(:last-child) .list-row-body {
+    box-shadow: inset 0 -0.5px 0 rgb(var(--separator));
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Logo is dark artwork; flip lightness but keep the purple hue in dark mode */
+  .logo-adaptive {
+    transition: filter 200ms ease;
+  }
+  .dark .logo-adaptive {
+    filter: invert(1) hue-rotate(180deg) brightness(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

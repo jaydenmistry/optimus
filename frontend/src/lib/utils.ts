@@ -13,38 +13,33 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function formatDate(dateString: string): string {
+export function formatDate(dateString: string, opts?: { year?: boolean }): string {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
+    ...(opts?.year === false ? {} : { year: 'numeric' }),
   }).format(date);
 }
 
-export function getRiskColor(riskLevel: string): string {
-  switch (riskLevel) {
-    case 'critical':
-      return 'bg-red-100 text-red-800 border-red-200';
-    case 'high':
-      return 'bg-orange-100 text-orange-800 border-orange-200';
-    case 'medium':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'low':
-      return 'bg-green-100 text-green-800 border-green-200';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
-export function getConfidenceColor(score: number): string {
-  if (score >= 90) return 'text-green-600';
-  if (score >= 80) return 'text-blue-600';
-  if (score >= 70) return 'text-yellow-600';
-  if (score >= 60) return 'text-orange-600';
-  return 'text-red-600';
+/** 135 → "2h 15m", 45 → "45m" */
+export function formatMinutes(totalMinutes: number): string {
+  const m = Math.max(0, Math.round(totalMinutes));
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  if (h === 0) return `${rest}m`;
+  return rest ? `${h}h ${rest}m` : `${h}h`;
 }
 
-export function cn(...classes: (string | boolean | undefined)[]): string {
+/** Drop the brand prefix from store names where space is tight */
+export function shortStoreName(name: string): string {
+  return name.replace(/^Chipotle\s+/i, '');
+}
+
+export function cn(...classes: (string | boolean | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ');
 }
