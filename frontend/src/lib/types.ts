@@ -267,3 +267,12 @@ export interface PeakHoursDashboard {
   }>;
   total_prep_tasks: number;
 }
+
+/** GET /api/sku/{store}/{sku}/hourly */
+export interface SKUHourlyForecast {
+  store: { id: number; name: string };
+  sku: { id: number; name: string; category: string };
+  current_on_hand: number;
+  hourly_forecast: Array<HourlyForecast & { remaining_inventory?: number; will_stockout_this_hour?: boolean }>;
+  stockout_prediction: StockoutPrediction;
+}

@@ -9,8 +9,11 @@ import type {
   Transfer,
   DemoStats,
   DemoPreview,
-  PeakHoursDashboard
+  PeakHoursDashboard,
+  Store,
+  SKUHourlyForecast,
 } from './types';
+import type { LatestTelemetry } from './telemetry';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -24,13 +27,28 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    throw new Error(`API Error: ${response.statusText}`);
+    let detail = response.statusText;
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === 'string') detail = body.detail;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new Error(detail ? `${detail} (${response.status})` : `Request failed (${response.status})`);
   }
 
   return response.json();
 }
 
 export const api = {
+  async getStores(): Promise<Store[]> {
+    return fetchAPI<Store[]>('/api/stores');
+  },
+
+  async getLatestTelemetry(storeId: number): Promise<LatestTelemetry> {
+    return fetchAPI<LatestTelemetry>(`/api/telemetry/${storeId}/latest`);
+  },
+
   // Overview endpoints
   async getOverview(params?: {
     store_id?: number;
@@ -141,8 +159,8 @@ export const api = {
     return fetchAPI(`/api/prep-schedule/${storeId}?prep_lead_time=${prepLeadTime}`);
   },
 
-  async getSKUHourlyForecast(storeId: number, skuId: number) {
-    return fetchAPI(`/api/sku/${storeId}/${skuId}/hourly`);
+  async getSKUHourlyForecast(storeId: number, skuId: number): Promise<SKUHourlyForecast> {
+    return fetchAPI<SKUHourlyForecast>(`/api/sku/${storeId}/${skuId}/hourly`);
   },
 
   // Health check
