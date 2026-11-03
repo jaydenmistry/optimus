@@ -1,0 +1,27 @@
+# Production image for the FastAPI backend (used by docker-compose.dokploy.yml)
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# curl is used by the container healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+
+# SQLite database lives here; mount a volume on it to persist data
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
+EXPOSE 8000
+
+# Single worker on purpose: SQLite plus the demo-data seeding at startup
+# would race with several workers.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]

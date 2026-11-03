@@ -24,6 +24,8 @@ docker-compose up --build
 # Backend API: http://localhost:8000/docs
 ```
 
+**Deploying to production?** See [DEPLOY_DOKPLOY.md](DEPLOY_DOKPLOY.md) for the Dokploy setup (https://optimus.jmistry.com).
+
 **Demo Credentials:**
 - Username: `admin@optimus.com`
 - Password: `admin123`

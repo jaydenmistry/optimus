@@ -77,9 +77,6 @@ Thumbs.db
 logs/
 *.log
 
-# Docker
-.dockerignore
-
 # Test
 coverage/
 .nyc_output/

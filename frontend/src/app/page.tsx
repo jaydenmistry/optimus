@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 import type { OverviewResponse, InventoryItem } from '@/lib/types';
 import { getRiskColor, getConfidenceColor, formatNumber, formatDate } from '@/lib/utils';
 
@@ -57,7 +57,7 @@ export default function Home() {
   async function loadTelemetry() {
     try {
       const storeId = selectedStore || 1; // Default to store 1
-      const response = await fetch(`http://localhost:8000/api/telemetry/${storeId}/latest`);
+      const response = await fetch(`${API_URL}/api/telemetry/${storeId}/latest`);
       if (response.ok) {
         const data = await response.json();
         setTelemetry(data);

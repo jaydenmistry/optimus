@@ -195,7 +195,7 @@ export default function PeakHoursPage() {
         {/* Prep Schedule */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-ncr-dark">Today's Prep Schedule</h2>
+            <h2 className="text-2xl font-bold text-ncr-dark">Today&apos;s Prep Schedule</h2>
             <span className="px-3 py-1 bg-ncr-primary-pale text-ncr-primary rounded-full text-sm font-semibold">
               {data?.total_prep_tasks || 0} Tasks
             </span>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 import type { DemoStats, DemoPreview } from '@/lib/types';
 
 const DEMO_PARAMS = { num_stores: 5, num_skus: 200, days_history: 60 };
@@ -242,23 +242,23 @@ export default function AdminPage() {
             <div>
               <p className="text-sm font-medium text-gray-700">Backend API</p>
               <a
-                href="http://localhost:8000/docs"
+                href={`${API_URL}/docs`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-ncr-primary hover:text-ncr-primary-dark hover:underline text-sm font-medium"
               >
-                http://localhost:8000/docs
+                {API_URL}/docs
               </a>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-700">Health Check</p>
               <a
-                href="http://localhost:8000/api/health"
+                href={`${API_URL}/api/health`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:underline text-sm"
               >
-                http://localhost:8000/api/health
+                {API_URL}/api/health
               </a>
             </div>
             <div>
