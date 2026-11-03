@@ -1,10 +1,10 @@
 """
 Transfer management API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Literal, Optional
 
 from ..database import get_db
 from ..models import Transfer, Store, SKU
@@ -14,26 +14,41 @@ from ..services.transfer_optimizer import (
     create_transfer_from_recommendation,
     get_transfer_opportunities_summary
 )
+from ..services.request_cache import with_request_cache
+from ..security import require_admin
 
 router = APIRouter()
 
 
+TransferStatus = Literal["draft", "approved", "in_transit", "received", "cancelled"]
+
+# Allowed lifecycle moves. Received and cancelled transfers are final.
+ALLOWED_TRANSITIONS = {
+    "draft": {"approved", "cancelled"},
+    "approved": {"in_transit", "cancelled"},
+    "in_transit": {"received"},
+    "received": set(),
+    "cancelled": set(),
+}
+
+
 class TransferCreate(BaseModel):
-    from_store_id: int
-    to_store_id: int
-    sku_id: int
-    qty: int
+    from_store_id: int = Field(..., ge=1)
+    to_store_id: int = Field(..., ge=1)
+    sku_id: int = Field(..., ge=1)
+    qty: int = Field(..., ge=1, le=10_000)
     recommendation_id: Optional[int] = None
 
 
 class TransferUpdate(BaseModel):
-    status: str
+    status: TransferStatus
 
 
 @router.get("/transfers/recommendations")
+@with_request_cache
 async def get_transfer_recommendations(
-    min_urgency: float = 0.5,
-    limit: int = 50,
+    min_urgency: float = Query(0.5, ge=0, le=1),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db)
 ):
     """
@@ -110,9 +125,9 @@ async def create_transfer_draft(
 
 @router.get("/transfers")
 async def get_transfers(
-    status: Optional[str] = None,
+    status: Optional[TransferStatus] = None,
     store_id: Optional[int] = None,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db)
 ):
     """
@@ -171,9 +186,11 @@ async def update_transfer(
         raise HTTPException(status_code=404, detail="Transfer not found")
     
     # Validate status transition
-    valid_statuses = ["draft", "approved", "in_transit", "received", "cancelled"]
-    if update.status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    if update.status not in ALLOWED_TRANSITIONS.get(transfer.status, set()):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Can't move a transfer from {transfer.status} to {update.status}."
+        )
     
     transfer.status = update.status
     
@@ -192,11 +209,12 @@ async def update_transfer(
     }
 
 
-@router.post("/transfers/generate-recommendations")
+@router.post("/transfers/generate-recommendations", dependencies=[Depends(require_admin)])
+@with_request_cache
 async def generate_and_save_recommendations(
-    target_cover_days: int = 10,
-    safety_buffer_days: int = 2,
-    min_urgency: float = 0.5,
+    target_cover_days: int = Query(10, ge=1, le=60),
+    safety_buffer_days: int = Query(2, ge=0, le=30),
+    min_urgency: float = Query(0.5, ge=0, le=1),
     db: Session = Depends(get_db)
 ):
     """

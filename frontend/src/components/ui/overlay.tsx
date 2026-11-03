@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { CheckCircle2, XCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
+import { useIsClient, useLatest } from '@/lib/hooks';
 
 /* -------------------------------------------------------------------------- */
 /* Sheet / alert dialog                                                       */
@@ -41,12 +42,9 @@ export function Sheet({
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const cancelCb = useRef(onCancel);
-  cancelCb.current = onCancel;
-  const loadingRef = useRef(loading);
-  loadingRef.current = loading;
+  const mounted = useIsClient();
+  const cancelCb = useLatest(onCancel);
+  const loadingRef = useLatest(loading);
 
   useEffect(() => {
     if (!open) return;
@@ -63,7 +61,7 @@ export function Sheet({
       document.body.style.overflow = overflow;
       prev?.focus?.();
     };
-  }, [open]);
+  }, [open, cancelCb, loadingRef]);
 
   if (!open || !mounted) return null;
 

@@ -94,7 +94,7 @@ export function SegmentedControl<T extends string>({
 /* Popover + menu picker                                                      */
 /* -------------------------------------------------------------------------- */
 
-function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLElement>) {
+function useDismiss(open: boolean, close: () => void, ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     if (!open) return;
     function onPointer(e: MouseEvent | TouchEvent) {
@@ -156,12 +156,15 @@ export function Picker<T extends string | number | null>({
   const selectedIndex = options.findIndex((o) => o.value === value);
   const current = options[selectedIndex];
 
+  // Move focus into the list once it renders
   useEffect(() => {
-    if (open) {
-      setActive(Math.max(0, selectedIndex));
-      requestAnimationFrame(() => listRef.current?.focus());
-    }
-  }, [open, selectedIndex]);
+    if (open) requestAnimationFrame(() => listRef.current?.focus());
+  }, [open]);
+
+  function toggle() {
+    if (!open) setActive(Math.max(0, selectedIndex));
+    setOpen(!open);
+  }
 
   function choose(i: number) {
     onChange(options[i].value);
@@ -193,7 +196,7 @@ export function Picker<T extends string | number | null>({
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
         aria-label={`${label}: ${current?.label ?? ''}`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         className={cn(
           buttonClassName ??
             'inline-flex h-10 max-w-full items-center gap-2 rounded-full bg-surface pl-4 pr-3 text-subhead font-medium text-label shadow-card ring-1 ring-separator/70 transition-colors hover:bg-fill/8 dark:bg-elevated'

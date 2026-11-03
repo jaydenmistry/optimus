@@ -3,39 +3,53 @@ Telemetry API endpoints for IoT sensor data
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+import math
+
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime, timedelta
 
 from ..database import get_db
 from ..models import Store, Telemetry
+from ..security import require_telemetry_key
 
 router = APIRouter()
 
 
 class TelemetryInput(BaseModel):
     """Telemetry input schema"""
-    store_id: int = Field(..., description="Store ID")
-    sensor: str = Field(..., description="Sensor identifier (e.g., 'cooler_humidity_pct')")
+    store_id: int = Field(..., ge=1, description="Store ID")
+    sensor: str = Field(
+        ..., pattern=r"^[a-z0-9_]{1,64}$",
+        description="Sensor identifier (e.g., 'cooler_humidity_pct')"
+    )
     value: float = Field(..., description="Sensor reading value")
-    unit: Optional[str] = Field(None, description="Unit of measurement (e.g., 'pct', 'celsius')")
-    metadata: Optional[str] = Field(None, description="Additional metadata as JSON string")
+    unit: Optional[str] = Field(None, max_length=32, description="Unit of measurement (e.g., 'pct', 'celsius')")
+    metadata: Optional[str] = Field(None, max_length=2000, description="Additional metadata as JSON string")
+
+    @field_validator("value")
+    @classmethod
+    def value_must_be_finite(cls, v: float) -> float:
+        # Python's JSON parser accepts NaN and Infinity, which would poison
+        # averages and thresholds downstream
+        if not math.isfinite(v) or abs(v) > 1e6:
+            raise ValueError("value must be a finite number")
+        return v
 
 
 class TelemetryResponse(BaseModel):
     """Telemetry response schema"""
+    model_config = {"from_attributes": True}
+
     id: int
     store_id: int
     sensor: str
     value: float
     unit: Optional[str]
     ts_datetime: str
-    
-    class Config:
-        from_attributes = True
 
 
-@router.post("/telemetry")
+@router.post("/telemetry", dependencies=[Depends(require_telemetry_key)])
 async def create_telemetry(
     data: TelemetryInput,
     db: Session = Depends(get_db)
@@ -88,9 +102,9 @@ async def create_telemetry(
 @router.get("/telemetry/{store_id}")
 async def get_telemetry(
     store_id: int,
-    sensor: Optional[str] = Query(None, description="Filter by sensor type"),
-    hours: int = Query(24, description="Hours of history to retrieve"),
-    limit: int = Query(100, description="Maximum records"),
+    sensor: Optional[str] = Query(None, max_length=64, description="Filter by sensor type"),
+    hours: int = Query(24, ge=1, le=168, description="Hours of history to retrieve"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum records"),
     db: Session = Depends(get_db)
 ):
     """

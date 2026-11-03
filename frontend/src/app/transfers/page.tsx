@@ -88,7 +88,7 @@ export default function TransfersPage() {
       });
       setPendingRec(null);
       setFilter('active');
-      await page.reload({ silent: true });
+      page.reload({ silent: true });
     } catch (err) {
       toast.show({ tone: 'error', title: 'Couldn’t create transfer', message: err instanceof Error ? err.message : undefined });
     } finally {
@@ -101,7 +101,7 @@ export default function TransfersPage() {
     try {
       await api.updateTransferStatus(t.id, status);
       toast.show({ tone: 'success', title: doneMessage, message: `${t.sku_name} · ${t.qty} units` });
-      await page.reload({ silent: true });
+      page.reload({ silent: true });
     } catch (err) {
       toast.show({ tone: 'error', title: 'Couldn’t update transfer', message: err instanceof Error ? err.message : undefined });
     } finally {

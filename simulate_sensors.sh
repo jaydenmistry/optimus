@@ -3,7 +3,9 @@
 # Simulate IoT sensors sending telemetry data
 # This script posts realistic sensor readings to the telemetry API
 
-API_URL="http://localhost:8000/api/telemetry"
+# Override for production, e.g.:
+#   API_URL=https://optimus.jmistry.com/api/telemetry TELEMETRY_API_KEY=... ./simulate_sensors.sh
+API_URL="${API_URL:-http://localhost:8000/api/telemetry}"
 
 echo "🌡️  Starting IoT sensor simulation..."
 echo "Press Ctrl+C to stop"
@@ -51,28 +53,28 @@ while true; do
         # Send cooler temperature
         TEMP=$(generate_cooler_temp)
         curl -s -X POST "$API_URL" \
-            -H "Content-Type: application/json" \
+            -H "Content-Type: application/json" -H "X-API-Key: ${TELEMETRY_API_KEY:-}" \
             -d "{\"store_id\":$STORE_ID,\"sensor\":\"cooler_temp_c\",\"value\":$TEMP}" \
             > /dev/null
         
         # Send humidity
         HUMIDITY=$(generate_humidity)
         curl -s -X POST "$API_URL" \
-            -H "Content-Type: application/json" \
+            -H "Content-Type: application/json" -H "X-API-Key: ${TELEMETRY_API_KEY:-}" \
             -d "{\"store_id\":$STORE_ID,\"sensor\":\"cooler_humidity_pct\",\"value\":$HUMIDITY,\"unit\":\"pct\"}" \
             > /dev/null
         
         # Send freezer temperature
         FREEZER=$(generate_freezer_temp)
         curl -s -X POST "$API_URL" \
-            -H "Content-Type: application/json" \
+            -H "Content-Type: application/json" -H "X-API-Key: ${TELEMETRY_API_KEY:-}" \
             -d "{\"store_id\":$STORE_ID,\"sensor\":\"freezer_temp_c\",\"value\":$FREEZER,\"unit\":\"celsius\"}" \
             > /dev/null
         
         # Send ambient temperature
         AMBIENT=$(generate_ambient_temp)
         curl -s -X POST "$API_URL" \
-            -H "Content-Type: application/json" \
+            -H "Content-Type: application/json" -H "X-API-Key: ${TELEMETRY_API_KEY:-}" \
             -d "{\"store_id\":$STORE_ID,\"sensor\":\"ambient_temp_c\",\"value\":$AMBIENT,\"unit\":\"celsius\"}" \
             > /dev/null
     done

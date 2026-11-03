@@ -139,14 +139,23 @@ export const api = {
     return fetchAPI<DemoPreview>(`/api/demo/preview${query ? `?${query}` : ''}`);
   },
 
-  async regenerateDemoData(params?: {
-    num_stores?: number;
-    num_skus?: number;
-    days_history?: number;
-  }) {
+  /** How the server protects demo reset: open (dev), token required, or disabled */
+  async getDemoAccess(): Promise<{ reset: 'open' | 'token' | 'disabled' }> {
+    return fetchAPI('/api/demo/access');
+  },
+
+  async regenerateDemoData(
+    params?: {
+      num_stores?: number;
+      num_skus?: number;
+      days_history?: number;
+    },
+    adminToken?: string
+  ) {
     return fetchAPI('/api/demo/regenerate', {
       method: 'POST',
       body: JSON.stringify(params || {}),
+      headers: adminToken ? { 'X-Admin-Token': adminToken } : undefined,
     });
   },
 

@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { themeInitScript } from '@/lib/theme';
 import { Providers } from '@/components/shell/providers';
 import { Footer, NavBar, TabBar } from '@/components/shell/nav';
@@ -23,11 +24,13 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Set by src/proxy.ts; lets the inline theme script pass the CSP
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
         <Providers>

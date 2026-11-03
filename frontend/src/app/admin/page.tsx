@@ -38,18 +38,40 @@ export default function AdminPage() {
   const stats = useAsync(() => api.getDemoStats(), []);
   const preview = useAsync(() => api.getDemoPreview(DEMO_PARAMS).catch(() => null), []);
   const health = useAsync(() => api.healthCheck() as Promise<{ status: string; version: string }>, []);
+  const access = useAsync(() => api.getDemoAccess(), []);
   const [confirming, setConfirming] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  // Kept in memory only for this confirmation; never stored
+  const [adminToken, setAdminToken] = useState('');
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const resetMode = access.data?.reset ?? 'open';
+  const needsToken = resetMode === 'token';
+
+  function closeSheet() {
+    setConfirming(false);
+    setAdminToken('');
+    setTokenError(null);
+  }
 
   async function regenerate() {
+    if (needsToken && !adminToken) {
+      setTokenError('Enter the admin token to continue.');
+      return;
+    }
     setRegenerating(true);
+    setTokenError(null);
     try {
-      await api.regenerateDemoData(DEMO_PARAMS);
-      setConfirming(false);
+      await api.regenerateDemoData(DEMO_PARAMS, needsToken ? adminToken : undefined);
+      closeSheet();
       toast.show({ tone: 'success', title: 'Demo data regenerated', message: 'All pages now show the new data set.' });
-      await stats.reload({ silent: true });
+      stats.reload({ silent: true });
     } catch (err) {
-      toast.show({ tone: 'error', title: 'Couldn’t regenerate data', message: err instanceof Error ? err.message : undefined });
+      const message = err instanceof Error ? err.message : undefined;
+      if (message?.includes('(401)')) {
+        setTokenError('That token isn’t right.');
+      } else {
+        toast.show({ tone: 'error', title: 'Couldn’t regenerate data', message });
+      }
     } finally {
       setRegenerating(false);
     }
@@ -130,10 +152,18 @@ export default function AdminPage() {
             <IconTile tone="red">{regenerating ? <Spinner className="h-[18px] w-[18px]" /> : <RefreshCw />}</IconTile>
           }
           title={regenerating ? 'Regenerating…' : 'Regenerate Demo Data'}
-          subtitle={regenerating ? 'This takes about 20 seconds.' : undefined}
+          subtitle={
+            regenerating
+              ? 'This takes about 20 seconds.'
+              : resetMode === 'disabled'
+                ? 'Disabled on this server. Set ADMIN_TOKEN to enable it.'
+                : needsToken
+                  ? 'Requires the admin token.'
+                  : undefined
+          }
           destructive
           onClick={() => setConfirming(true)}
-          disabled={regenerating}
+          disabled={regenerating || resetMode === 'disabled'}
         />
       </Section>
 
@@ -178,8 +208,33 @@ export default function AdminPage() {
         confirmLabel="Regenerate"
         loading={regenerating}
         onConfirm={regenerate}
-        onCancel={() => setConfirming(false)}
-      />
+        onCancel={closeSheet}
+      >
+        {needsToken && (
+          <label className="block">
+            <span className="text-footnote font-medium text-label-secondary">Admin token</span>
+            <input
+              type="password"
+              autoComplete="off"
+              value={adminToken}
+              onChange={(e) => {
+                setAdminToken(e.target.value);
+                setTokenError(null);
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && regenerate()}
+              aria-invalid={tokenError ? true : undefined}
+              aria-describedby={tokenError ? 'token-error' : undefined}
+              className="mt-1.5 h-11 w-full rounded-xl bg-fill/12 px-3.5 text-body text-label placeholder:text-label-tertiary focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="Paste the ADMIN_TOKEN value"
+            />
+            {tokenError && (
+              <span id="token-error" role="alert" className="mt-1.5 block text-footnote text-sys-red">
+                {tokenError}
+              </span>
+            )}
+          </label>
+        )}
+      </Sheet>
     </Container>
   );
 }
