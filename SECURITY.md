@@ -6,7 +6,8 @@ the codebase found, and the risks that remain by design.
 ## Reporting a vulnerability
 
 Please don't open a public issue. Use **Report a vulnerability** on the
-repository's **Security** tab, which sends the report to me privately.
+repository's **Security** tab, or email
+[jayden@jmistry.com](mailto:jayden@jmistry.com). Both reach me privately.
 
 ## Threat model
 

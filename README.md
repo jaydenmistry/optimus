@@ -141,6 +141,6 @@ hardware/           Arduino sketch and serial-to-API bridge
 plans/              original hackathon planning notes
 ```
 
-## Team
+## Contact
 
-Built at UGAHacks 11 by Jayden Mistry, [Aaditiya05](https://github.com/Aaditiya05) and [kanishkpaidimarry](https://github.com/kanishkpaidimarry).
+Jayden Mistry · [jayden@jmistry.com](mailto:jayden@jmistry.com)
