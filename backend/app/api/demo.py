@@ -11,6 +11,8 @@ from typing import Optional, List
 
 from ..database import get_db
 from ..security import admin_access_mode, require_admin
+from ..simulation import SIMULATION_LOCK
+from ..simulation import sensors as simulated_sensors
 from ..utils.demo_data import generate_demo_data
 from ..models import (
     Store, SKU, InventorySnapshot, SalesDaily, 
@@ -113,11 +115,15 @@ def regenerate_demo_data(request: DemoDataRequest):
     if not _regenerate_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Demo data is already being regenerated.")
     try:
-        stats = generate_demo_data(
-            num_stores=request.num_stores,
-            num_skus=request.num_skus,
-            days_history=request.days_history
-        )
+        # Hold the simulation lock so the background simulator doesn't write
+        # into tables that are being wiped
+        with SIMULATION_LOCK:
+            stats = generate_demo_data(
+                num_stores=request.num_stores,
+                num_skus=request.num_skus,
+                days_history=request.days_history
+            )
+            simulated_sensors.reset_state()
         return {
             "success": True,
             "message": "Demo data regenerated successfully",

@@ -1,6 +1,7 @@
 """
 FastAPI main application
 """
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -10,7 +11,8 @@ from fastapi.responses import JSONResponse
 from .config import settings
 from .database import init_db, SessionLocal
 from .security import SecurityHeadersMiddleware
-from .api import overview, sku, transfers, demo, peak_hours, telemetry
+from .api import overview, sku, transfers, demo, peak_hours, telemetry, simulation
+from .simulation import runner as simulation_runner
 
 
 @asynccontextmanager
@@ -41,7 +43,18 @@ async def lifespan(app: FastAPI):
             print("🔒 ADMIN_TOKEN not set: demo data reset is disabled")
         if not settings.TELEMETRY_API_KEY:
             print("🔒 TELEMETRY_API_KEY not set: sensor ingestion is disabled")
+
+    # Demo mode: bring the data up to date, then keep it moving in the background
+    stop = asyncio.Event()
+    sim_task = None
+    if settings.SIMULATION_ENABLED:
+        await asyncio.to_thread(simulation_runner.startup)
+        sim_task = asyncio.create_task(simulation_runner.run_forever(stop))
+        print(f"🎛️  Simulation running (sensors every {settings.SIMULATION_INTERVAL_SECONDS}s)")
     yield
+    stop.set()
+    if sim_task:
+        await sim_task
 
 
 # Create FastAPI app
@@ -87,6 +100,7 @@ app.include_router(transfers.router, prefix="/api", tags=["transfers"])
 app.include_router(demo.router, prefix="/api", tags=["demo"])
 app.include_router(peak_hours.router, prefix="/api", tags=["peak-hours"])
 app.include_router(telemetry.router, prefix="/api", tags=["telemetry"])
+app.include_router(simulation.router, prefix="/api", tags=["simulation"])
 
 
 @app.get("/api/health")

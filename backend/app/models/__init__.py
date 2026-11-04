@@ -14,8 +14,10 @@ from .recommendation import TransferRecommendation, StoreDistance
 from .sales_hourly import SalesHourly
 from .prep_recommendation import PrepRecommendation, InventoryRealtime
 from .telemetry import Telemetry
+from .simulation import SimulationScenario
 
 __all__ = [
+    "SimulationScenario",
     "Store",
     "SKU",
     "InventorySnapshot",

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..models import (
     Store, SKU, InventorySnapshot, SalesDaily, ReceiptsDaily,
     Transfer, CycleCount, Supplier, SKUSupplier, AnomalyEvent,
-    TransferRecommendation, StoreDistance, SalesHourly, Telemetry
+    TransferRecommendation, StoreDistance, SalesHourly, Telemetry, SimulationScenario
 )
 from ..database import SessionLocal, engine, Base
 import math
@@ -46,6 +46,7 @@ def generate_demo_data(
     try:
         # Clear existing data
         print("🗑️  Clearing existing data...")
+        db.query(SimulationScenario).delete()
         db.query(TransferRecommendation).delete()
         db.query(AnomalyEvent).delete()
         db.query(CycleCount).delete()

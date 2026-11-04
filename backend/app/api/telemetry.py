@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from ..database import get_db
 from ..models import Store, Telemetry
 from ..security import require_telemetry_key
+from ..simulation.sensors import SIMULATOR_TAG
 
 router = APIRouter()
 
@@ -178,7 +179,9 @@ async def get_latest_telemetry(
                 "value": latest.value,
                 "unit": latest.unit,
                 "ts_datetime": latest.ts_datetime.isoformat(),
-                "age_seconds": (datetime.utcnow() - latest.ts_datetime).total_seconds()
+                "age_seconds": (datetime.utcnow() - latest.ts_datetime).total_seconds(),
+                # "simulator" for demo-mode readings, "device" for real hardware
+                "source": "simulator" if latest.metadata_json == SIMULATOR_TAG else "device",
             }
     
     return {

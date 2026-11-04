@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     # Serve the interactive API docs at /docs, /redoc and /openapi.json
     DOCS_ENABLED: bool = True
 
+    # Demo mode simulation: keeps the data current and simulates the sensors
+    # now that the hackathon hardware isn't connected
+    SIMULATION_ENABLED: bool = True
+    SIMULATE_SENSORS: bool = True
+    SIMULATION_INTERVAL_SECONDS: int = 20
+    # Public scenario buttons (cooler failure, catering order, ...)
+    SCENARIOS_ENABLED: bool = True
+
     # Demo Data
     DEMO_NUM_STORES: int = 5
     DEMO_NUM_SKUS: int = 200

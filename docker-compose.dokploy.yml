@@ -30,6 +30,14 @@ services:
       - optimus-data:/app/data
     environment:
       ENVIRONMENT: production
+      # The demo stores are in Athens, GA: "today", the daily roll-forward and
+      # the Peak Hours clock all follow store time
+      TZ: ${TZ:-America/New_York}
+      # Demo mode: keep the data current and simulate the sensors
+      SIMULATION_ENABLED: ${SIMULATION_ENABLED:-true}
+      SIMULATE_SENSORS: ${SIMULATE_SENSORS:-true}
+      SIMULATION_INTERVAL_SECONDS: ${SIMULATION_INTERVAL_SECONDS:-20}
+      SCENARIOS_ENABLED: ${SCENARIOS_ENABLED:-true}
       DATABASE_URL: sqlite:///data/inventory.db
       CORS_ORIGINS: ${CORS_ORIGINS:-https://optimus.jmistry.com}
       # Needed (as the X-Admin-Token header) to wipe/regenerate demo data.
