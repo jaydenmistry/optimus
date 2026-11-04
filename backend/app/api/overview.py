@@ -70,7 +70,10 @@ async def get_overview(
     if store_id:
         query = query.filter(InventorySnapshot.store_id == store_id)
     
-    results = query.limit(limit * 10).all()  # Get 10x more records to ensure all stores represented
+    # Score every item for the latest day (bounded by stores x SKUs), so the
+    # "All Stores" view and the alert counts cover every store, not just the
+    # first rows in store order
+    results = query.all()
     
     items = []
     
@@ -117,32 +120,34 @@ async def get_overview(
             "suggested_action": suggested_action
         }
         
-        # Apply filters
-        if risk_only and risk_level not in ["critical", "high"]:
-            continue
-        
-        if confidence["score"] < min_confidence:
-            continue
-        
         items.append(item)
-    
+
+    # Alerts describe the whole store selection, before the table filters,
+    # so the summary tiles don't change when "At Risk" is toggled
+    critical_stockouts = sum(1 for i in items if i["risk_level"] == "critical")
+    low_confidence = sum(1 for i in items if i["confidence_score"] < 70)
+
+    # Apply table filters
+    items = [
+        i for i in items
+        if (not risk_only or i["risk_level"] in ("critical", "high"))
+        and i["confidence_score"] >= min_confidence
+    ]
+
     # Sort by risk (critical first)
     risk_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     items.sort(key=lambda x: (risk_order[x["risk_level"]], x["days_of_cover"]))
-    
+    total_matching = len(items)
+
     # Limit results
     items = items[:limit]
-    
-    # Calculate alerts
-    critical_stockouts = sum(1 for i in items if i["risk_level"] == "critical")
-    low_confidence = sum(1 for i in items if i["confidence_score"] < 70)
     
     # Get transfer opportunities
     transfer_summary = get_transfer_opportunities_summary(db)
     
     return {
         "items": items,
-        "total": len(items),
+        "total": total_matching,
         "alerts": {
             "critical_stockouts": critical_stockouts,
             "low_confidence": low_confidence,
