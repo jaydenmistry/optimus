@@ -6,6 +6,7 @@ import { ArrowLeftRight, Clock, LayoutGrid, Monitor, Moon, Settings2, Sun } from
 import { cn } from '@/lib/utils';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 import { Picker } from '@/components/ui/controls';
+import { SimulationButton } from '@/components/simulation/banner';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Overview', icon: LayoutGrid },
@@ -71,7 +72,10 @@ export function NavBar() {
           })}
         </div>
 
-        <ThemeMenu />
+        <div className="flex items-center gap-1">
+          <SimulationButton />
+          <ThemeMenu />
+        </div>
       </div>
     </nav>
   );

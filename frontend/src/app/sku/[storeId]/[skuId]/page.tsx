@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate, formatNumber, formatTime } from '@/lib/utils';
-import { useAsync } from '@/lib/hooks';
+import { useAsync, useDataChanged } from '@/lib/hooks';
 import {
   Card,
   Container,
@@ -54,6 +54,7 @@ export default function SKUDetailPage() {
   const [view, setView] = useState<View>('daily');
 
   const detail = useAsync(() => api.getSKUDetail(storeId, skuId, 30), [storeId, skuId]);
+  useDataChanged(() => detail.reload({ silent: true }));
   const [hourlyRequested, setHourlyRequested] = useState(false);
   const hourly = useAsync(
     () => (hourlyRequested ? api.getSKUHourlyForecast(storeId, skuId) : Promise.resolve(null)),

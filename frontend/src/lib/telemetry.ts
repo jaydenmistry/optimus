@@ -12,6 +12,8 @@ export interface SensorReading {
   unit: string | null;
   ts_datetime: string;
   age_seconds: number;
+  /** "simulator" in demo mode, "device" for real hardware */
+  source?: 'simulator' | 'device';
 }
 
 export interface LatestTelemetry {

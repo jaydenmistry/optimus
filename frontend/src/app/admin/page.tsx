@@ -9,6 +9,7 @@ import {
   Boxes,
   CalendarRange,
   ExternalLink,
+  FlaskConical,
   Layers,
   RefreshCw,
   Receipt,
@@ -16,7 +17,9 @@ import {
   Tag,
 } from 'lucide-react';
 import { api, API_URL } from '@/lib/api';
-import { useAsync } from '@/lib/hooks';
+import { useAsync, useDataChanged } from '@/lib/hooks';
+import { formatDate } from '@/lib/utils';
+import { useSimulation } from '@/components/simulation/provider';
 import {
   Container,
   IconTile,
@@ -39,6 +42,8 @@ export default function AdminPage() {
   const preview = useAsync(() => api.getDemoPreview(DEMO_PARAMS).catch(() => null), []);
   const health = useAsync(() => api.healthCheck() as Promise<{ status: string; version: string }>, []);
   const access = useAsync(() => api.getDemoAccess(), []);
+  const sim = useSimulation();
+  useDataChanged(() => stats.reload({ silent: true }));
   const [confirming, setConfirming] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   // Kept in memory only for this confirmation; never stored
@@ -113,6 +118,19 @@ export default function AdminPage() {
         title="Demo Data"
         footer="Regenerating deletes all existing data, including transfers you created, and builds a new synthetic data set. This can't be undone."
       >
+        {sim.status?.enabled && (
+          <ListRow
+            icon={<IconTile tone="accent"><FlaskConical /></IconTile>}
+            title="Simulator"
+            subtitle={[
+              sim.status.data_through ? `Data through ${formatDate(sim.status.data_through, { year: false })}, rolled forward daily` : 'Rolls data forward daily',
+              sim.status.sensors_simulated ? `sensors every ${sim.status.sensor_interval_seconds}s` : null,
+              `${sim.status.active.length} scenario${sim.status.active.length === 1 ? '' : 's'} running`,
+            ].filter(Boolean).join(' · ')}
+            trailing={<StatusBadge tone="green">Running</StatusBadge>}
+            onClick={() => sim.setOpen(true)}
+          />
+        )}
         {p ? (
           <>
             <ListRow

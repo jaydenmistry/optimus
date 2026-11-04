@@ -122,3 +122,23 @@ function loadStores() {
   });
   return storesPromise;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Cross-page "data changed" signal (fired when a simulation scenario starts,  */
+/* ends or expires) so every visible page refetches.                           */
+/* -------------------------------------------------------------------------- */
+
+const DATA_CHANGED = 'optimus:data-changed';
+
+export function notifyDataChanged() {
+  window.dispatchEvent(new Event(DATA_CHANGED));
+}
+
+export function useDataChanged(fn: () => void) {
+  const fnRef = useLatest(fn);
+  useEffect(() => {
+    const handler = () => fnRef.current();
+    window.addEventListener(DATA_CHANGED, handler);
+    return () => window.removeEventListener(DATA_CHANGED, handler);
+  }, [fnRef]);
+}

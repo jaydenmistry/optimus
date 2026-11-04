@@ -20,7 +20,8 @@ import {
 import { api } from '@/lib/api';
 import type { InventoryItem } from '@/lib/types';
 import { cn, formatDate, formatNumber, shortStoreName } from '@/lib/utils';
-import { useAsync, useInterval, useStores } from '@/lib/hooks';
+import { useAsync, useDataChanged, useInterval, useStores } from '@/lib/hooks';
+import { useSimulation } from '@/components/simulation/provider';
 import {
   formatAge,
   formatSensorName,
@@ -69,9 +70,15 @@ export default function OverviewPage() {
     [filter, storeId]
   );
 
-  const telemetryStore = storeId ?? stores[0]?.id ?? 1;
+  // With "All Stores" selected, follow a running cooler failure so the visitor can watch it
+  const { coolerFailureStore, status: simStatus } = useSimulation();
+  const telemetryStore = storeId ?? coolerFailureStore ?? stores[0]?.id ?? 1;
   const telemetry = useAsync(() => api.getLatestTelemetry(telemetryStore), [telemetryStore]);
   useInterval(() => telemetry.reload({ silent: true }), 10000);
+  useDataChanged(() => {
+    overview.reload({ silent: true });
+    telemetry.reload({ silent: true });
+  });
 
   const items = useMemo(() => {
     const list = overview.data?.items ?? [];
@@ -156,6 +163,8 @@ export default function OverviewPage() {
         storeName={telemetry.data?.store_name}
         sensors={telemetry.data?.sensors}
         loading={telemetry.loading}
+        intervalSeconds={simStatus?.sensor_interval_seconds}
+        coolerFailure={coolerFailureStore != null && coolerFailureStore === telemetryStore}
       />
 
       {/* Inventory */}
@@ -255,23 +264,28 @@ function SensorsSection({
   storeName,
   sensors,
   loading,
+  intervalSeconds,
+  coolerFailure,
 }: {
   storeName?: string;
-  sensors?: Record<string, { value: number; unit: string | null; age_seconds: number }>;
+  sensors?: Record<string, { value: number; unit: string | null; age_seconds: number; source?: string }>;
   loading: boolean;
+  intervalSeconds?: number;
+  coolerFailure?: boolean;
 }) {
   const entries = visibleSensors(sensors ?? {});
   if (!loading && entries.length === 0) return null;
+  const simulated = entries.some(([, r]) => r.source === 'simulator');
 
   return (
     <Section
       bare
       title="Sensors"
-      description={storeName}
+      description={coolerFailure ? `${storeName} · cooler failure scenario running` : storeName}
       action={
         <span className="inline-flex items-center gap-2 text-footnote font-medium text-label-secondary">
-          <StatusDot tone="green" pulse />
-          Live
+          <StatusDot tone={coolerFailure ? 'orange' : 'green'} pulse />
+          {simulated ? `Simulated · every ${intervalSeconds ?? 20}s` : 'Live'}
         </span>
       }
     >

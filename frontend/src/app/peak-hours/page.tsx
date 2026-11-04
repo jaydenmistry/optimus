@@ -5,7 +5,7 @@ import { AlertTriangle, BarChart3, CheckCircle2, Flame, Timer } from 'lucide-rea
 import { api } from '@/lib/api';
 import type { PeakHoursDashboard, PrepRecommendation } from '@/lib/types';
 import { cn, formatMinutes, formatTime } from '@/lib/utils';
-import { useAsync, useInterval, useStores } from '@/lib/hooks';
+import { useAsync, useDataChanged, useInterval, useStores } from '@/lib/hooks';
 import {
   ButtonLink,
   Card,
@@ -43,6 +43,7 @@ export default function PeakHoursPage() {
 
   const dash = useAsync(() => api.getPeakHoursDashboard(storeId), [storeId]);
   useInterval(() => dash.reload({ silent: true }), 60000);
+  useDataChanged(() => dash.reload({ silent: true }));
   const data = dash.data;
 
   return (

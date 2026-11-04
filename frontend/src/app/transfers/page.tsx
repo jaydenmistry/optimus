@@ -14,7 +14,7 @@ import {
 import { api } from '@/lib/api';
 import type { Transfer, TransferRecommendation } from '@/lib/types';
 import { cn, formatCurrency, formatDate, formatNumber, shortStoreName } from '@/lib/utils';
-import { useAsync } from '@/lib/hooks';
+import { useAsync, useDataChanged } from '@/lib/hooks';
 import {
   Button,
   Card,
@@ -64,6 +64,8 @@ export default function TransfersPage() {
     ]);
     return { recs, transfers: transfers.transfers };
   }, []);
+
+  useDataChanged(() => page.reload({ silent: true }));
 
   const [pendingRec, setPendingRec] = useState<TransferRecommendation | null>(null);
   const [creating, setCreating] = useState(false);

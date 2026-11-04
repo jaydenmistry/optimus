@@ -12,6 +12,9 @@ import type {
   PeakHoursDashboard,
   Store,
   SKUHourlyForecast,
+  SimulationStatus,
+  ActiveScenario,
+  ScenarioKind,
 } from './types';
 import type { LatestTelemetry } from './telemetry';
 
@@ -170,6 +173,26 @@ export const api = {
 
   async getSKUHourlyForecast(storeId: number, skuId: number): Promise<SKUHourlyForecast> {
     return fetchAPI<SKUHourlyForecast>(`/api/sku/${storeId}/${skuId}/hourly`);
+  },
+
+  // Demo-mode simulation
+  async getSimulationStatus(): Promise<SimulationStatus> {
+    return fetchAPI<SimulationStatus>('/api/simulation/status');
+  },
+
+  async startScenario(kind: ScenarioKind, storeId: number): Promise<ActiveScenario> {
+    return fetchAPI<ActiveScenario>('/api/simulation/scenarios', {
+      method: 'POST',
+      body: JSON.stringify({ kind, store_id: storeId }),
+    });
+  },
+
+  async endScenario(id: number) {
+    return fetchAPI(`/api/simulation/scenarios/${id}/end`, { method: 'POST' });
+  },
+
+  async resetScenarios(): Promise<{ ended: number }> {
+    return fetchAPI('/api/simulation/reset', { method: 'POST' });
   },
 
   // Health check

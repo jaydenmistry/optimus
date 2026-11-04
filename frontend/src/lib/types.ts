@@ -276,3 +276,34 @@ export interface SKUHourlyForecast {
   hourly_forecast: Array<HourlyForecast & { remaining_inventory?: number; will_stockout_this_hour?: boolean }>;
   stockout_prediction: StockoutPrediction;
 }
+
+/* Demo-mode simulation (GET /api/simulation/status) */
+export type ScenarioKind = 'cooler_failure' | 'catering_order' | 'unrecorded_loss' | 'deliveries';
+
+export interface ScenarioInfo {
+  kind: ScenarioKind;
+  title: string;
+  description: string;
+  duration_seconds: number;
+}
+
+export interface ActiveScenario {
+  id: number;
+  kind: ScenarioKind;
+  title: string;
+  store_id: number;
+  summary: string;
+  started_at: string;
+  expires_at: string;
+  seconds_left: number;
+}
+
+export interface SimulationStatus {
+  enabled: boolean;
+  sensors_simulated: boolean;
+  sensor_interval_seconds: number;
+  scenarios_enabled: boolean;
+  data_through: string | null;
+  catalog: ScenarioInfo[];
+  active: ActiveScenario[];
+}

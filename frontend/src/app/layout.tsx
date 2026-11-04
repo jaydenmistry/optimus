@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { themeInitScript } from '@/lib/theme';
 import { Providers } from '@/components/shell/providers';
 import { Footer, NavBar, TabBar } from '@/components/shell/nav';
+import { DemoBanner } from '@/components/simulation/banner';
 
 export const metadata: Metadata = {
   title: {
@@ -41,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             Skip to content
           </a>
           <NavBar />
+          <DemoBanner />
           <main id="main" className="min-h-[calc(100vh-3.5rem)]">
             {children}
           </main>

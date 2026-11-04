@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { CheckCircle2, XCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
@@ -115,6 +116,7 @@ interface ToastItem {
   title: string;
   message?: string;
   tone: ToastTone;
+  action?: { label: string; href: string; onClick?: () => void };
 }
 
 const ToastContext = createContext<{ show: (t: Omit<ToastItem, 'id'>) => void }>({ show: () => {} });
@@ -136,7 +138,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const show = useCallback((t: Omit<ToastItem, 'id'>) => {
     const id = ++counter.current;
     setItems((prev) => [...prev.slice(-2), { ...t, id }]);
-    setTimeout(() => setItems((prev) => prev.filter((i) => i.id !== id)), t.tone === 'error' ? 6000 : 3500);
+    setTimeout(() => setItems((prev) => prev.filter((i) => i.id !== id)), t.tone === 'error' || t.action ? 6000 : 3500);
   }, []);
 
   return (
@@ -159,6 +161,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <p className="text-subhead font-semibold text-label">{t.title}</p>
               {t.message && <p className="text-footnote text-label-secondary">{t.message}</p>}
             </div>
+            {t.action && (
+              <Link
+                href={t.action.href}
+                onClick={t.action.onClick}
+                className="shrink-0 self-center rounded-full bg-accent/12 px-3 py-1 text-footnote font-semibold text-accent-text hover:bg-accent/20 dark:bg-accent/25"
+              >
+                {t.action.label}
+              </Link>
+            )}
           </div>
         ))}
       </div>
