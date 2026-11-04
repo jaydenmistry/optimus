@@ -40,6 +40,7 @@ check GET "/api/prep-schedule/$STORE"
 check GET "/api/telemetry/$STORE"
 check GET "/api/telemetry/$STORE/latest"
 check GET /api/demo/access
+check GET /api/simulation/status
 echo "Security headers:"
 for h in content-security-policy strict-transport-security x-content-type-options x-frame-options referrer-policy; do
   for p in / /api/health; do
@@ -75,6 +76,10 @@ if [ "$WRITE" = 1 ]; then
   check POST /api/transfers/draft "{\"from_store_id\":$OTHER,\"to_store_id\":$STORE,\"sku_id\":$SKU_ID,\"qty\":1}"
   TID=$(python3 -c 'import json; print(json.load(open("/tmp/ce_out")).get("id",""))' 2>/dev/null)
   [ -n "$TID" ] && check PATCH "/api/transfers/$TID" '{"status":"cancelled"}'
+  # Start and immediately end a harmless sensor scenario (undone on end)
+  check POST /api/simulation/scenarios "{\"kind\":\"cooler_failure\",\"store_id\":$STORE}"
+  SID=$(python3 -c 'import json; print(json.load(open("/tmp/ce_out")).get("id",""))' 2>/dev/null)
+  [ -n "$SID" ] && check POST "/api/simulation/scenarios/$SID/end"
 fi
 echo "Result: $pass passed, $fail failed"
 [ $fail -eq 0 ]

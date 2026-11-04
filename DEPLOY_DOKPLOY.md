@@ -121,6 +121,10 @@ What they do:
 | `TELEMETRY_API_KEY` | Sensors must send it as the `X-API-Key` header to post readings. | Sensor ingestion is disabled. |
 | `DOCS_ENABLED` | Set to `false` to hide `/docs`, `/redoc` and `/openapi.json`. | Docs stay on (default `true`). |
 | `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS` | Public URL of the site. | Default to `https://optimus.jmistry.com`. |
+| `SIMULATION_ENABLED` | Keeps the demo data current and simulates the sensors. Set to `false` to turn the simulator off. | On (default `true`). |
+| `SIMULATE_SENSORS`, `SIMULATION_INTERVAL_SECONDS` | Simulated sensor readings and how often they arrive. | On, every 20 seconds. |
+| `SCENARIOS_ENABLED` | The public **Run a scenario** buttons. | On (default `true`). |
+| `TZ` | Store time zone for "today", the daily roll-forward and the Peak Hours clock. | `America/New_York`. |
 
 The compose file sets `ENVIRONMENT=production`, which is what makes an empty
 secret mean "disabled" rather than "open". `SECRET_KEY` is no longer needed;

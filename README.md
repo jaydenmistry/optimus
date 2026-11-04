@@ -4,6 +4,8 @@ Optimus is an inventory health dashboard for restaurant chains. It predicts whic
 
 **Live demo:** [optimus.jmistry.com](https://optimus.jmistry.com)
 
+Everything on the demo is simulated. The stores, sales, inventory and sensor readings are generated, and the project isn't affiliated with Chipotle. Use **Run a scenario** on any page to trigger an event, like a cooler failure or a catering order, and watch the dashboard react.
+
 We built the first version at UGAHacks 11, and I've kept working on it since. Specifically, I redesigned the UI, made the API about five times faster, deployed it on my own server and ran a full security audit.
 
 <picture>
@@ -18,7 +20,8 @@ We built the first version at UGAHacks 11, and I've kept working on it since. Sp
 - **Confidence scoring.** Grades how much you can trust each on-hand number from A to F, so managers know which items to physically count first.
 - **Transfer recommendations.** Finds stores with extra stock close to a store that's running low, and walks a transfer through approval, shipping and receiving.
 - **Peak hours.** Forecasts demand by the hour for the lunch and dinner rushes and builds a prep schedule from it.
-- **Live sensors.** An Arduino posts cooler, freezer and humidity readings that show up on the dashboard.
+- **Live sensors.** An Arduino posts cooler, freezer and humidity readings that show up on the dashboard. Since the hackathon it's been replaced by a simulator that behaves the same way.
+- **Simulation.** A background simulator generates each new day of sales, deliveries and counts so the demo never goes stale, and four scenarios let visitors trigger events that undo themselves a few minutes later.
 
 | | |
 |---|---|
@@ -59,6 +62,10 @@ The analytics are deliberately simple rules, and each one can explain its result
 **SQLite.** It needs no setup and lives in one file on a Docker volume, which fits a demo. The tradeoff is a single writer, so the API runs one worker. The schema is plain SQLAlchemy, so moving to Postgres would mostly mean changing the connection string.
 
 **Making the API fast without changing any answers.** The overview page took 3 to 4 seconds because it ran the forecast about 3,500 times per request, each with its own query. Now each request loads the sales, anomaly and cycle count data in a few bulk queries up front, and the scoring code reads from memory. I only accepted the change after checking that the output was identical for all 1,000 store and item pairs. The overview now loads in about 0.6 seconds.
+
+**Keeping a finished demo alive.** Every page reads "yesterday's" inventory, so a data set generated once went blank the day after. Now a simulator runs inside the API. It fills in each missing day by continuing every item's own weekday and weekend demand, and reorders when stock runs low. It also does occasional cycle counts and injects the odd unexplained loss. Before trusting it, I simulated six weeks ahead and checked that the dashboard still looked like a normal week: a few stockout risks and a couple dozen transfer opportunities, with most items in good shape.
+
+**Scenarios that clean up after themselves.** The scenario buttons are public, so every change a scenario makes is written to a journal as a delta, and it's undone exactly when the scenario ends or expires. I tested that by running overlapping scenarios, ending them in a different order and checking that the database matched its original state byte for byte. They're also rate limited per visitor and capped site-wide.
 
 **Calibrate sensors at the source.** The demo temperature sensor sits at room temperature, not in a cooler, so its readings need a −20°C offset. That offset used to live in the frontend and got applied to every reading, including demo data that was already realistic, so the dashboard showed 0°F and "Critical." Now the Arduino bridge applies it before posting, and the database only ever stores real cooler temperatures.
 
@@ -101,13 +108,9 @@ git clone https://github.com/jaydenmistry/optimus.git
 cd optimus && docker compose up --build
 ```
 
-Then open [localhost:3000](http://localhost:3000) for the dashboard and [localhost:8000/docs](http://localhost:8000/docs) for the API. The backend generates the demo data set (5 stores, 200 items, 60 days of history) the first time it starts, which takes about 20 seconds.
+Then open [localhost:3000](http://localhost:3000) for the dashboard and [localhost:8000/docs](http://localhost:8000/docs) for the API. The backend generates the demo data set (5 stores, 200 items, 60 days of history) the first time it starts, which takes about 20 seconds. After that the simulator keeps it current and posts sensor readings every 20 seconds.
 
-To post simulated sensor readings while it's running:
-
-```bash
-./simulate_sensors.sh
-```
+To turn the simulator off, for example when a real sensor is connected, set `SIMULATION_ENABLED=false`. The simulator also steps aside on its own for any sensor that a real device has posted to in the last few minutes.
 
 ## Deploying
 
@@ -133,6 +136,7 @@ backend/
   app/api/          REST endpoints
   app/services/     forecasting, anomaly detection, confidence, transfers, peak hours
   app/security.py   auth for write endpoints and security headers
+  app/simulation/   daily roll-forward, simulated sensors, demo scenarios
 frontend/
   src/app/          pages (overview, transfers, item detail, peak hours, admin)
   src/components/   design system and app shell

@@ -31,6 +31,7 @@ data, which is synthetic. The things worth protecting are:
 | `POST /api/transfers/generate-recommendations` | `X-Admin-Token` must match `ADMIN_TOKEN` |
 | `POST /api/telemetry` | `X-API-Key` must match `TELEMETRY_API_KEY` |
 | Transfer drafts and status changes | Open on purpose so visitors can try the workflow; inputs are bounded and status changes follow the real lifecycle |
+| Simulation scenarios (`/api/simulation/*`) | Open on purpose so visitors can try them. Limited to 6 starts per client per 5 minutes, 40 site-wide, and 8 running at once. Every change is journaled and undone automatically within 10 minutes |
 | Everything else | Read-only |
 
 Secrets are compared in constant time. With `ENVIRONMENT=production`, an unset
@@ -106,9 +107,14 @@ placeholder values in example code.
 
 ## Known limitations
 
-* **No rate limiting in the app.** Read endpoints and transfer drafts are open by
-  design. If the public demo gets abused, add a rate-limit middleware in front
-  of it in Traefik or Dokploy.
+* **Limited rate limiting in the app.** Only the simulation endpoints are rate
+  limited. Read endpoints and transfer drafts are open by design. If the
+  public demo gets abused, add a rate-limit middleware in front of it in
+  Traefik or Dokploy.
+* **Per-client limits trust `X-Forwarded-For`.** The API trusts proxy headers
+  so it sees visitors' real IPs behind Traefik, which means a client can
+  rotate that header to dodge the per-client scenario limit. The site-wide
+  limits still cap the total.
 * **`style-src 'unsafe-inline'`.** React and Recharts render inline style
   attributes. Scripts are still locked to the nonce, so this doesn't allow
   script injection.
