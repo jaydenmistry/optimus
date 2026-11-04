@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion } from 'motion/react';
+import { EASE_OUT } from './motion';
 import { cn } from '@/lib/utils';
 
 export function Container({
@@ -93,7 +95,14 @@ export function Section({
   id?: string;
 }) {
   return (
-    <section className={cn('mb-8', className)} aria-labelledby={id ? `${id}-title` : undefined}>
+    <motion.section
+      className={cn('mb-8', className)}
+      aria-labelledby={id ? `${id}-title` : undefined}
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '0px 0px -40px 0px' }}
+      transition={{ duration: 0.6, ease: EASE_OUT }}
+    >
       {(title || action) && (
         <div className="mb-2.5 flex flex-wrap items-end justify-between gap-3 px-1">
           <div className="min-w-0">
@@ -109,7 +118,7 @@ export function Section({
       )}
       {bare ? children : <Card className="overflow-hidden">{children}</Card>}
       {footer && <p className="mt-2 px-4 text-footnote text-label-secondary">{footer}</p>}
-    </section>
+    </motion.section>
   );
 }
 

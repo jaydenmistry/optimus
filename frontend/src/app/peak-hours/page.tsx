@@ -18,6 +18,9 @@ import {
   Skeleton,
   StatusBadge,
   type Tone,
+  Stagger,
+  EASE_OUT,
+  motion,
 } from '@/components/ui';
 import { HourlyDemandChart, LegendItem } from '@/components/ui/charts';
 
@@ -111,7 +114,7 @@ export default function PeakHoursPage() {
                 {[...data.prep_schedule]
                   .sort((a, b) => Date.parse(a.prep_time) - Date.parse(b.prep_time))
                   .map((prep, i, arr) => (
-                    <PrepRow key={`${prep.sku_id}-${i}`} prep={prep} last={i === arr.length - 1} />
+                    <PrepRow key={`${prep.sku_id}-${i}`} prep={prep} last={i === arr.length - 1} index={i} />
                   ))}
               </ol>
             )}
@@ -143,7 +146,7 @@ export default function PeakHoursPage() {
                 />
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <Stagger className="grid gap-4 md:grid-cols-2" stagger={0.08}>
                 {data.critical_items.slice(0, 6).map((item) => (
                   <Card key={item.sku_id} className="p-4 sm:p-5">
                     <div className="mb-3 flex items-start justify-between gap-3">
@@ -171,7 +174,7 @@ export default function PeakHoursPage() {
                     )}
                   </Card>
                 ))}
-              </div>
+              </Stagger>
             )}
           </Section>
         </div>
@@ -229,19 +232,31 @@ function NowCard({ summary }: { summary: PeakHoursDashboard['summary'] }) {
 
       <div className="mt-6" aria-hidden>
         <div className="relative h-9 overflow-hidden rounded-[10px] bg-fill/12">
-          {PEAKS.map((p) => (
-            <div
+          {PEAKS.map((p, i) => (
+            <motion.div
               key={p.label}
-              className="absolute inset-y-0 flex items-center justify-center bg-sys-orange/25 text-caption font-semibold text-label"
+              className="absolute inset-y-0 flex origin-left items-center justify-center bg-sys-orange/25 text-caption font-semibold text-label"
               style={{ left: pos(p.start), width: `calc(${pos(p.end)} - ${pos(p.start)})` }}
+              initial={{ opacity: 0, scaleX: 0.4 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.2 + i * 0.12 }}
             >
               {p.label}
-            </div>
+            </motion.div>
           ))}
           {nowHours >= DAY_START && nowHours <= DAY_END && (
-            <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-accent-text" style={{ left: pos(nowHours) }}>
-              <span className="absolute -top-px left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-accent-text" />
-            </div>
+            <motion.div
+              className="absolute inset-y-0 w-0.5 bg-accent-text"
+              style={{ left: pos(nowHours), x: '-50%' }}
+              initial={{ opacity: 0, scaleY: 0 }}
+              animate={{ opacity: 1, scaleY: 1 }}
+              transition={{ duration: 0.5, ease: EASE_OUT, delay: 0.5 }}
+            >
+              <span className="absolute -top-px left-1/2 flex h-2 w-2 -translate-x-1/2">
+                <span className="absolute inset-0 animate-ping rounded-full bg-accent-text opacity-60" />
+                <span className="relative h-2 w-2 rounded-full bg-accent-text" />
+              </span>
+            </motion.div>
           )}
         </div>
         <div className="relative mt-1.5 h-4 text-caption text-label-secondary">
@@ -259,12 +274,18 @@ function NowCard({ summary }: { summary: PeakHoursDashboard['summary'] }) {
   );
 }
 
-function PrepRow({ prep, last }: { prep: PrepRecommendation; last: boolean }) {
+function PrepRow({ prep, last, index = 0 }: { prep: PrepRecommendation; last: boolean; index?: number }) {
   const p = PRIORITY[prep.priority] ?? PRIORITY.low;
   const hours = Math.floor(prep.hours_until_prep);
   const minutes = Math.floor((prep.hours_until_prep % 1) * 60);
   return (
-    <li className="relative flex gap-3 px-4 sm:gap-4">
+    <motion.li
+      className="relative flex gap-3 px-4 sm:gap-4"
+      initial={{ opacity: 0, x: -10 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.45, ease: EASE_OUT, delay: Math.min(index, 10) * 0.05 }}
+    >
       <div className="tabular w-[4.5rem] shrink-0 pt-3 text-right text-subhead font-semibold">{prep.prep_time_display}</div>
       <div className="relative flex w-3 shrink-0 justify-center" aria-hidden>
         <span className={cn('absolute top-0 w-px bg-separator', last ? 'h-5' : 'h-full')} />
@@ -289,7 +310,7 @@ function PrepRow({ prep, last }: { prep: PrepRecommendation; last: boolean }) {
           <span className="text-label-secondary"> · {prep.current_on_hand} on hand now</span>
         </p>
       </div>
-    </li>
+    </motion.li>
   );
 }
 

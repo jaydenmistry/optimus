@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useReducedMotion } from 'motion/react';
 import {
   Bar,
   BarChart,
@@ -83,6 +84,14 @@ function ChartTooltip({
   );
 }
 
+/** Bars grow and lines draw in on first render; respects reduced motion */
+const chartAnimation = {
+  isAnimationActive: true,
+  animationDuration: 900,
+  animationBegin: 120,
+  animationEasing: 'ease-out' as const,
+};
+
 const axisProps = (p: Palette) => ({
   tick: { fill: p.axis, fontSize: 11 },
   tickLine: false,
@@ -99,6 +108,7 @@ export interface HourlyDatum {
 /** Hourly demand bars; peak hours orange, a stockout hour red */
 export function HourlyDemandChart({ data, height = 180 }: { data: HourlyDatum[]; height?: number }) {
   const p = useChartPalette();
+  const reduced = useReducedMotion();
   if (!p) return <div style={{ height }} />;
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -107,7 +117,7 @@ export function HourlyDemandChart({ data, height = 180 }: { data: HourlyDatum[];
         <XAxis dataKey="label" {...axisProps(p)} interval="preserveStartEnd" minTickGap={12} />
         <YAxis {...axisProps(p)} width={44} allowDecimals={false} tickCount={4} interval={0} />
         <Tooltip cursor={{ fill: p.accentSoft, opacity: 0.25 }} content={<ChartTooltip />} />
-        <Bar dataKey="demand" name="Demand" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+        <Bar dataKey="demand" name="Demand" radius={[4, 4, 0, 0]} {...chartAnimation} isAnimationActive={!reduced}>
           {data.map((d, i) => (
             <Cell key={i} fill={d.stockout ? p.red : d.isPeak ? p.orange : p.accent} />
           ))}
@@ -127,6 +137,7 @@ export interface DailyDatum {
 /** Daily sales history bars with forecast bars and an on-hand line */
 export function DailyDemandChart({ data, height = 240, todayLabel }: { data: DailyDatum[]; height?: number; todayLabel?: string }) {
   const p = useChartPalette();
+  const reduced = useReducedMotion();
   if (!p) return <div style={{ height }} />;
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -147,11 +158,11 @@ export function DailyDemandChart({ data, height = 240, todayLabel }: { data: Dai
           fill={p.blue}
           fillOpacity={0.08}
           dot={false}
-          isAnimationActive={false}
+          {...chartAnimation} isAnimationActive={!reduced}
           connectNulls={false}
         />
-        <Bar yAxisId="units" dataKey="sales" name="Sold" stackId="day" fill={p.accent} radius={[3, 3, 0, 0]} isAnimationActive={false} />
-        <Bar yAxisId="units" dataKey="forecast" name="Forecast" stackId="day" fill={p.accentSoft} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+        <Bar yAxisId="units" dataKey="sales" name="Sold" stackId="day" fill={p.accent} radius={[3, 3, 0, 0]} {...chartAnimation} isAnimationActive={!reduced} />
+        <Bar yAxisId="units" dataKey="forecast" name="Forecast" stackId="day" fill={p.accentSoft} radius={[3, 3, 0, 0]} {...chartAnimation} isAnimationActive={!reduced} />
       </ComposedChart>
     </ResponsiveContainer>
   );

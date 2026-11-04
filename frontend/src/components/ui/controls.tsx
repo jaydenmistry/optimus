@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronsUpDown, Search, X } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 /* -------------------------------------------------------------------------- */
@@ -53,13 +54,13 @@ export function SegmentedControl<T extends string>({
       className={cn('relative inline-grid rounded-[9px] bg-fill/12 p-0.5', className)}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
-      <span
+      <motion.span
         aria-hidden
-        className="absolute bottom-0.5 left-0.5 top-0.5 rounded-[7px] bg-surface shadow-thumb transition-transform duration-200 ease-out dark:bg-elevated"
-        style={{
-          width: `calc((100% - 4px) / ${options.length})`,
-          transform: `translateX(${index * 100}%)`,
-        }}
+        className="absolute bottom-0.5 left-0.5 top-0.5 rounded-[7px] bg-surface shadow-thumb dark:bg-elevated"
+        style={{ width: `calc((100% - 4px) / ${options.length})` }}
+        initial={false}
+        animate={{ x: `${index * 100}%` }}
+        transition={{ type: 'spring', stiffness: 550, damping: 40 }}
       />
       {options.map((opt, i) => {
         const selected = i === index;

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -61,7 +62,7 @@ const getServerSnapshot = () => 'system:light';
 interface ThemeContextValue {
   mode: ThemeMode;
   resolved: 'light' | 'dark';
-  setMode: (mode: ThemeMode) => void;
+  setMode: (mode: ThemeMode, origin?: { x: number; y: number }) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
@@ -81,13 +82,42 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('dark', getSnapshot().endsWith(':dark'));
   }, [resolved]);
 
-  const setMode = useCallback((m: ThemeMode) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, m);
-    } catch {
-      /* storage unavailable */
+  const setMode = useCallback((m: ThemeMode, origin?: { x: number; y: number }) => {
+    const commit = () => {
+      try {
+        localStorage.setItem(STORAGE_KEY, m);
+      } catch {
+        /* storage unavailable */
+      }
+      document.documentElement.classList.toggle('dark', m === 'dark' || (m === 'system' && systemPrefersDark()));
+      flushSync(notify);
+    };
+
+    // Grow the new theme as a circle from the toggle (View Transitions API).
+    // Falls back to an instant switch where unsupported or when the OS asks
+    // for reduced motion.
+    const doc = document as Document & {
+      startViewTransition?: (update: () => void) => { ready: Promise<void> };
+    };
+    const willFlip =
+      (m === 'dark' || (m === 'system' && systemPrefersDark())) !== document.documentElement.classList.contains('dark');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!doc.startViewTransition || reduce || !willFlip) {
+      commit();
+      return;
     }
-    notify();
+    const x = origin?.x ?? window.innerWidth - 40;
+    const y = origin?.y ?? 28;
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const transition = doc.startViewTransition(commit);
+    transition.ready
+      .then(() => {
+        document.documentElement.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+          { duration: 650, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', pseudoElement: '::view-transition-new(root)' }
+        );
+      })
+      .catch(() => {});
   }, []);
 
   return <ThemeContext.Provider value={{ mode, resolved, setMode }}>{children}</ThemeContext.Provider>;

@@ -30,7 +30,11 @@ import {
   StatusBadge,
   useToast,
   type Tone,
+  Stagger,
+  EASE_OUT,
+  motion,
 } from '@/components/ui';
+import { AnimatePresence } from 'motion/react';
 
 function urgency(score: number): { tone: Tone; label: string } {
   if (score >= 0.8) return { tone: 'red', label: 'High urgency' };
@@ -126,7 +130,7 @@ export default function TransfersPage() {
 
       {page.error && <ErrorCard className="mb-6" message={page.error} onRetry={() => page.reload()} />}
 
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <Stagger className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" itemClassName="h-full">
         <StatTile label="Opportunities" tone="accent" icon={<ArrowLeftRight />} value={summary?.total_opportunities ?? '—'} loading={page.loading} />
         <StatTile label="High Urgency" tone="red" icon={<Flame />} value={summary?.high_urgency ?? '—'} loading={page.loading} />
         <StatTile label="Units to Move" tone="blue" icon={<Package />} value={summary?.total_units ?? '—'} loading={page.loading} />
@@ -134,10 +138,11 @@ export default function TransfersPage() {
           label="Est. Savings"
           tone="green"
           icon={<CircleDollarSign />}
-          value={summary ? formatCurrency(summary.estimated_savings) : '—'}
+          value={summary ? summary.estimated_savings : '—'}
+          format={(n) => formatCurrency(Math.round(n))}
           loading={page.loading}
         />
-      </div>
+      </Stagger>
 
       <Section bare title="Recommended" description="Ordered by urgency. Each move is checked so the sending store keeps enough stock.">
         {page.loading ? (
@@ -159,11 +164,11 @@ export default function TransfersPage() {
             />
           </Card>
         ) : (
-          <div className="space-y-4">
+          <Stagger className="space-y-4" stagger={0.07}>
             {recommendations.map((rec, i) => (
               <RecommendationCard key={`${rec.sku_id}-${rec.from_store_id}-${rec.to_store_id}-${i}`} rec={rec} onCreate={() => setPendingRec(rec)} />
             ))}
-          </div>
+          </Stagger>
         )}
       </Section>
 
@@ -197,13 +202,22 @@ export default function TransfersPage() {
           />
         ) : (
           <ul>
+            <AnimatePresence initial={false}>
             {transfers.map((t) => {
               const status = STATUS[t.status] ?? { tone: 'gray' as Tone, label: t.status };
               const next = NEXT_STEP[t.status];
               const canCancel = t.status === 'draft' || t.status === 'approved';
               const busy = updatingId === t.id;
               return (
-                <li key={t.id} className="list-row flex items-center gap-3 pl-4 pr-4">
+                <motion.li
+                  key={t.id}
+                  layout
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.35, ease: EASE_OUT }}
+                  className="list-row flex items-center gap-3 overflow-hidden pl-4 pr-4"
+                >
                   <span
                     aria-hidden
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill/12 text-label-secondary"
@@ -235,9 +249,10 @@ export default function TransfersPage() {
                       </div>
                     )}
                   </div>
-                </li>
+                </motion.li>
               );
             })}
+            </AnimatePresence>
           </ul>
         )}
       </Section>
@@ -307,8 +322,9 @@ function RecommendationCard({ rec, onCreate }: { rec: TransferRecommendation; on
       <div className="mt-5 flex items-center gap-3">
         <StoreChip label="From" name={rec.from_store_name} />
         <div className="relative flex min-w-[3rem] flex-1 items-center" aria-hidden>
-          <div className="h-px flex-1 bg-separator" />
-          <ArrowRight className="-ml-1 h-4 w-4 text-label-tertiary" />
+          {/* Dashes flow from the sending store to the receiving one */}
+          <div className="flow-line flex-1 animate-flow rounded-full" />
+          <ArrowRight className="-ml-1 h-4 w-4 text-accent-text" />
           {routeMeta.length > 0 && (
             <span className="tabular absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-surface px-2 text-caption text-label-secondary">
               {routeMeta.join(' · ')}
@@ -365,12 +381,21 @@ function CoverBar({
       </div>
       <div className="mt-2 space-y-1" aria-hidden>
         <div className="h-1.5 rounded-full bg-fill/12">
-          <div className="h-full rounded-full bg-sys-gray/60" style={{ width: pct(before) }} />
+          <motion.div
+            className="h-full rounded-full bg-sys-gray/60"
+            initial={{ width: 0 }}
+            whileInView={{ width: pct(before) }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.9, ease: EASE_OUT }}
+          />
         </div>
         <div className="h-1.5 rounded-full bg-fill/12">
-          <div
-            className={cn('h-full rounded-full transition-[width] duration-700', tone === 'up' ? 'bg-sys-green' : 'bg-sys-blue')}
-            style={{ width: pct(after) }}
+          <motion.div
+            className={cn('h-full rounded-full', tone === 'up' ? 'bg-sys-green' : 'bg-sys-blue')}
+            initial={{ width: 0 }}
+            whileInView={{ width: pct(after) }}
+            viewport={{ once: true }}
+            transition={{ duration: 1.1, ease: EASE_OUT, delay: 0.25 }}
           />
         </div>
       </div>

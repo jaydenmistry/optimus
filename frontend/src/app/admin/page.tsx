@@ -32,6 +32,7 @@ import {
   StatusBadge,
   ErrorCard,
   useToast,
+  AnimatedNumber,
 } from '@/components/ui';
 
 const DEMO_PARAMS = { num_stores: 5, num_skus: 200, days_history: 60 };
@@ -84,7 +85,7 @@ export default function AdminPage() {
 
   const s = stats.data;
   const p = preview.data;
-  const num = (v: number | undefined) => (stats.loading ? <Skeleton className="h-4 w-12" /> : (v ?? 0).toLocaleString());
+  const num = (v: number | undefined) => (stats.loading ? <Skeleton className="h-4 w-12" /> : <AnimatedNumber value={v ?? 0} />);
 
   return (
     <Container narrow>

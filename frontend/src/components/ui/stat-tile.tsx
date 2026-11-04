@@ -5,6 +5,18 @@ import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tone } from './layout';
 import { Skeleton } from './feedback';
+import { AnimatedNumber, ChangeGlow } from './motion';
+
+const glowVar: Record<Tone, string> = {
+  red: '--red',
+  orange: '--orange',
+  yellow: '--yellow',
+  green: '--green',
+  blue: '--blue',
+  teal: '--teal',
+  gray: '--gray',
+  accent: '--accent',
+};
 
 const iconColor: Record<Tone, string> = {
   red: 'text-sys-red',
@@ -44,6 +56,7 @@ export function StatTile({
   loading,
   className,
   compact,
+  format,
 }: {
   label: string;
   value: React.ReactNode;
@@ -57,7 +70,10 @@ export function StatTile({
   className?: string;
   /** On phones, lay the tile out as a single row (label left, value right) */
   compact?: boolean;
+  /** Formats numeric values while they animate (default: whole numbers) */
+  format?: (n: number) => string;
 }) {
+  const isNumber = typeof value === 'number';
   const interactive = Boolean(href || onClick);
   const body = (
     <div className={cn(compact && 'flex items-center gap-3 sm:block')}>
@@ -76,7 +92,7 @@ export function StatTile({
           compact ? 'text-title-2 sm:mt-3 sm:text-[2rem]' : 'mt-3 text-[2rem]'
         )}
       >
-        {loading ? <Skeleton className="h-8 w-16" /> : value}
+        {loading ? <Skeleton className="h-8 w-16" /> : isNumber ? <AnimatedNumber value={value} format={format} /> : value}
       </div>
       {compact && interactive && <ChevronRight className="h-4 w-4 shrink-0 text-label-tertiary sm:hidden" aria-hidden />}
       {caption && <div className={cn('mt-2 text-footnote text-label-secondary', compact && 'hidden sm:block')}>{caption}</div>}
@@ -84,25 +100,32 @@ export function StatTile({
   );
 
   const base = cn(
-    'block rounded-card bg-surface p-4 text-left shadow-card transition-[box-shadow,transform] duration-150 sm:p-5',
-    interactive && 'hover:shadow-float active:scale-[0.99]',
+    'block h-full rounded-card bg-surface p-4 text-left shadow-card transition-[box-shadow,transform] duration-200 ease-out sm:p-5',
+    interactive && 'hover:-translate-y-0.5 hover:shadow-float active:translate-y-0 active:scale-[0.99]',
     active && activeRing[tone],
     className
   );
 
+  let tile: React.ReactNode;
   if (href) {
-    return (
+    tile = (
       <Link href={href} className={base}>
         {body}
       </Link>
     );
-  }
-  if (onClick) {
-    return (
+  } else if (onClick) {
+    tile = (
       <button type="button" onClick={onClick} aria-pressed={active} className={cn(base, 'w-full')}>
         {body}
       </button>
     );
+  } else {
+    tile = <div className={base}>{body}</div>;
   }
-  return <div className={base}>{body}</div>;
+  // Glow in the tile's color whenever its number changes (e.g. after a scenario)
+  return (
+    <ChangeGlow watch={isNumber ? value : null} rgbVar={glowVar[tone]} className="h-full">
+      {tile}
+    </ChangeGlow>
+  );
 }

@@ -7,6 +7,8 @@ import { CheckCircle2, XCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { useIsClient, useLatest } from '@/lib/hooks';
+import { AnimatePresence, motion } from 'motion/react';
+import { useMediaQuery } from './motion';
 
 /* -------------------------------------------------------------------------- */
 /* Sheet / alert dialog                                                       */
@@ -44,6 +46,7 @@ export function Sheet({
   const cancelRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const mounted = useIsClient();
+  const desktop = useMediaQuery('(min-width: 640px)');
   const cancelCb = useLatest(onCancel);
   const loadingRef = useLatest(loading);
 
@@ -64,20 +67,31 @@ export function Sheet({
     };
   }, [open, cancelCb, loadingRef]);
 
-  if (!open || !mounted) return null;
+  if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-6">
-      <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-[2px] animate-fade-in dark:bg-black/50"
+    <AnimatePresence>
+      {open && (
+    <motion.div key="sheet" className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-6">
+      <motion.div
+        className="absolute inset-0 bg-black/30 backdrop-blur-[2px] dark:bg-black/50"
         onClick={() => !loading && onCancel()}
         aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
       />
-      <div
+      <motion.div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative w-full max-w-md rounded-t-[1.25rem] bg-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float animate-sheet-in dark:bg-elevated sm:rounded-[1.25rem] sm:pb-6"
+        // Phones: slides up like a bottom sheet. Wider screens: scales in like an alert.
+        initial={desktop ? { opacity: 0, scale: 0.94, y: 8 } : { y: '100%' }}
+        animate={desktop ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
+        exit={desktop ? { opacity: 0, scale: 0.96, y: 4 } : { y: '100%' }}
+        transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+        className="relative w-full max-w-md rounded-t-[1.25rem] bg-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float dark:bg-elevated sm:rounded-[1.25rem] sm:pb-6"
       >
         <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-fill/35 sm:hidden" aria-hidden />
         {icon && <div className="mb-3 flex justify-center">{icon}</div>}
@@ -100,8 +114,10 @@ export function Sheet({
             {confirmLabel}
           </Button>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }
@@ -148,12 +164,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         aria-live="polite"
         className="pointer-events-none fixed inset-x-0 top-3 z-[110] flex flex-col items-center gap-2 px-4 sm:top-5"
       >
+        <AnimatePresence initial={false}>
         {items.map((t) => (
-          <div
+          <motion.div
             key={t.id}
+            layout
             role={t.tone === 'error' ? 'alert' : 'status'}
+            initial={{ opacity: 0, y: -24, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.94, transition: { duration: 0.2 } }}
+            transition={{ type: 'spring', stiffness: 520, damping: 34 }}
             className={cn(
-              'material-thick pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl px-4 py-3 shadow-float ring-1 ring-separator/50 animate-toast-in'
+              'material-thick pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl px-4 py-3 shadow-float ring-1 ring-separator/50'
             )}
           >
             <span className="mt-px">{toneIcon[t.tone]}</span>
@@ -170,8 +192,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {t.action.label}
               </Link>
             )}
-          </div>
+          </motion.div>
         ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );

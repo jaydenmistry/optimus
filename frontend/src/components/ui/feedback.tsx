@@ -16,7 +16,7 @@ export function Spinner({ className, label }: { className?: string; label?: stri
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('animate-pulse rounded-md bg-fill/16', className)} />;
+  return <div aria-hidden className={cn('skeleton-shimmer animate-shimmer rounded-md', className)} />;
 }
 
 export function EmptyState({

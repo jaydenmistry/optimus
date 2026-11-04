@@ -6,6 +6,7 @@ import { ArrowLeftRight, Clock, LayoutGrid, Monitor, Moon, Settings2, Sun } from
 import { cn } from '@/lib/utils';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 import { Picker } from '@/components/ui/controls';
+import { motion } from 'motion/react';
 import { SimulationButton } from '@/components/simulation/banner';
 
 const NAV_ITEMS = [
@@ -35,7 +36,12 @@ function ThemeMenu() {
       label="Appearance"
       options={THEME_OPTIONS}
       value={mode}
-      onChange={setMode}
+      onChange={(m) => {
+        // Start the circular reveal from the toggle button
+        const button = document.querySelector<HTMLElement>('button[aria-label^="Appearance"]');
+        const rect = button?.getBoundingClientRect();
+        setMode(m, rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined);
+      }}
       buttonClassName="inline-flex h-9 w-9 items-center justify-center rounded-full text-label-secondary transition-colors hover:bg-fill/15 hover:text-label"
       buttonContent={<Icon className="h-[18px] w-[18px]" aria-hidden />}
     />
@@ -62,11 +68,19 @@ export function NavBar() {
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'rounded-full px-3.5 py-1.5 text-subhead font-medium transition-colors duration-150',
-                  active ? 'bg-fill/15 text-label' : 'text-label-secondary hover:text-label'
+                  'relative rounded-full px-3.5 py-1.5 text-subhead font-medium transition-colors duration-150',
+                  active ? 'text-label' : 'text-label-secondary hover:text-label'
                 )}
               >
-                {label}
+                {/* One pill that glides to whichever section is active */}
+                {active && (
+                  <motion.span
+                    layoutId="nav-pill"
+                    className="absolute inset-0 rounded-full bg-fill/15"
+                    transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                  />
+                )}
+                <span className="relative">{label}</span>
               </Link>
             );
           })}
@@ -99,7 +113,14 @@ export function TabBar() {
                 active ? 'text-accent-text' : 'text-label-secondary'
               )}
             >
-              <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+              <motion.span
+                key={active ? 'on' : 'off'}
+                initial={active ? { scale: 0.7, y: 2 } : false}
+                animate={{ scale: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 600, damping: 18 }}
+              >
+                <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+              </motion.span>
               {label}
             </Link>
           );

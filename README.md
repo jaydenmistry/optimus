@@ -71,6 +71,8 @@ The analytics are deliberately simple rules, and each one can explain its result
 
 **A small design system instead of a component library.** The UI follows Apple's Human Interface Guidelines: grouped lists, a type scale, one accent color, and status colors only where they mean something (red for critical, green for normal). Every color is a CSS variable with a light and a dark value, so dark mode follows the system by default and has a manual toggle. The components (`frontend/src/components/ui`) are small enough that I know exactly what each one does.
 
+**Motion that explains something.** The animations follow Apple's approach of showing what changed instead of decorating. Numbers count to their new value and glow when a scenario changes them. The nav pill slides to the section you picked, panels slide in from where they live and back out the same way, and the theme switch grows out of the toggle you tapped. Everything respects the reduced motion setting, and I checked that scrolling and page loads hold 60 fps.
+
 **Secure by default in production.** The dashboard is a public demo, so reading data is open. Wiping the data needs an admin token and posting sensor readings needs a device key. If either secret isn't set in production, the endpoint turns itself off instead of staying open. More on that in [SECURITY.md](SECURITY.md).
 
 ## How I use AI
@@ -90,7 +92,7 @@ I don't take its output on faith. A change has to prove itself first, the same w
 
 | Layer | Tools |
 |---|---|
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Recharts, Lucide icons |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Motion, Recharts, Lucide icons |
 | Backend | Python 3.11, FastAPI, SQLAlchemy, Pydantic |
 | Data | SQLite |
 | Hardware | Arduino with a DHT sensor, Python serial bridge |

@@ -5,3 +5,4 @@ export * from './layout';
 export * from './overlay';
 export * from './stat-tile';
 export * from './status';
+export * from './motion';

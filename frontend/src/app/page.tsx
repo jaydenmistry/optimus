@@ -51,6 +51,10 @@ import {
   StatusBadge,
   StatusDot,
   riskTone,
+  Stagger,
+  AnimatedNumber,
+  EASE_OUT,
+  motion,
 } from '@/components/ui';
 
 type Filter = 'all' | 'risk';
@@ -126,7 +130,7 @@ export default function OverviewPage() {
       {overview.error && <ErrorCard className="mb-6" message={overview.error} onRetry={() => overview.reload()} />}
 
       {/* Summary */}
-      <div className="mb-8 grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-4">
+      <Stagger className="mb-8 grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-4">
         <StatTile
           compact
           label="Critical Stockouts"
@@ -157,7 +161,7 @@ export default function OverviewPage() {
           caption="Review recommended transfers"
           href="/transfers"
         />
-      </div>
+      </Stagger>
 
       <SensorsSection
         storeName={telemetry.data?.store_name}
@@ -284,30 +288,50 @@ function SensorsSection({
       description={coolerFailure ? `${storeName} · cooler failure scenario running` : storeName}
       action={
         <span className="inline-flex items-center gap-2 text-footnote font-medium text-label-secondary">
-          <StatusDot tone={coolerFailure ? 'orange' : 'green'} pulse />
-          {simulated ? `Simulated · every ${intervalSeconds ?? 20}s` : 'Live'}
+          {!loading && (
+            <>
+              <StatusDot tone={coolerFailure ? 'orange' : 'green'} pulse />
+              {simulated ? `Simulated · every ${intervalSeconds ?? 20}s` : 'Live'}
+            </>
+          )}
         </span>
       }
     >
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {loading
-          ? Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="p-4">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="mt-4 h-8 w-20" />
-                <Skeleton className="mt-3 h-3 w-16" />
-              </Card>
-            ))
-          : entries.map(([sensor, reading]) => {
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-4">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="mt-4 h-8 w-20" />
+              <Skeleton className="mt-3 h-3 w-16" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Stagger className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" itemClassName="h-full">
+          {entries.map(([sensor, reading]) => {
               const status = getSensorStatus(sensor, reading.value);
               return (
-                <Card key={sensor} className="p-4">
+                <Card
+                  key={sensor}
+                  className={cn(
+                    'h-full p-4 transition-shadow',
+                    status === 'critical' && 'animate-glow-critical ring-1 ring-sys-red/40',
+                    status === 'warning' && 'animate-glow-warning ring-1 ring-sys-orange/30'
+                  )}
+                >
                   <div className="flex items-center gap-2">
                     <SensorIcon sensor={sensor} />
                     <p className="truncate text-subhead font-medium text-label-secondary">{formatSensorName(sensor)}</p>
                   </div>
-                  <p className="tabular mt-3 text-[1.75rem] font-semibold leading-none tracking-tight">
-                    {formatSensorValue(sensor, reading.value, reading.unit)}
+                  <p className="mt-3 text-[1.75rem] font-semibold leading-none tracking-tight">
+                    {/* Tweens smoothly between readings instead of jumping */}
+                    <AnimatedNumber
+                      value={reading.value}
+                      countUp={false}
+                      duration={1.2}
+                      format={(v) => formatSensorValue(sensor, v, reading.unit)}
+                    />
                   </p>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <StatusBadge tone={sensorStatusTone[status]}>{sensorStatusLabel[status]}</StatusBadge>
@@ -316,7 +340,8 @@ function SensorsSection({
                 </Card>
               );
             })}
-      </div>
+        </Stagger>
+      )}
     </Section>
   );
 }
@@ -394,11 +419,14 @@ function InventoryTable({
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => {
+          {items.map((item, i) => {
             const href = `/sku/${item.store_id}/${item.sku_id}`;
             return (
-              <tr
+              <motion.tr
                 key={`${item.store_id}-${item.sku_id}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: EASE_OUT, delay: Math.min(i, 14) * 0.025 }}
                 onClick={() => router.push(href)}
                 className="group cursor-pointer text-subhead transition-colors hover:bg-fill/8 [&:not(:last-child)>td]:hairline-b"
               >
@@ -436,7 +464,7 @@ function InventoryTable({
                 <td className="pr-4">
                   <ChevronRight className="h-4 w-4 text-label-tertiary transition-transform group-hover:translate-x-0.5" aria-hidden />
                 </td>
-              </tr>
+              </motion.tr>
             );
           })}
         </tbody>
@@ -449,8 +477,14 @@ function InventoryTable({
 function InventoryList({ items }: { items: InventoryItem[] }) {
   return (
     <ul className="md:hidden">
-      {items.map((item) => (
-        <li key={`${item.store_id}-${item.sku_id}`} className="list-row">
+      {items.map((item, i) => (
+        <motion.li
+          key={`${item.store_id}-${item.sku_id}`}
+          className="list-row"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: EASE_OUT, delay: Math.min(i, 12) * 0.03 }}
+        >
           <Link
             href={`/sku/${item.store_id}/${item.sku_id}`}
             className="flex items-center gap-3 pl-4 pr-3 transition-colors active:bg-fill/16"
@@ -473,7 +507,7 @@ function InventoryList({ items }: { items: InventoryItem[] }) {
               <ChevronRight className="h-4 w-4 shrink-0 text-label-tertiary" aria-hidden />
             </div>
           </Link>
-        </li>
+        </motion.li>
       ))}
     </ul>
   );

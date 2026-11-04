@@ -37,6 +37,7 @@ import {
   StatusDot,
   confidenceTone,
   type Tone,
+  Stagger,
 } from '@/components/ui';
 import { DailyDemandChart, HourlyDemandChart, LegendItem } from '@/components/ui/charts';
 
@@ -116,14 +117,15 @@ export default function SKUDetailPage() {
         </div>
       )}
 
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <Stagger className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" itemClassName="h-full">
         <StatTile label="On Hand" tone="blue" icon={<Package />} value={state.on_hand} caption="units" />
-        <StatTile label="Daily Demand" tone="accent" icon={<TrendingUp />} value={formatNumber(state.daily_demand, 1)} caption="units per day" />
+        <StatTile label="Daily Demand" tone="accent" icon={<TrendingUp />} value={state.daily_demand} format={(n) => formatNumber(n, 1)} caption="units per day" />
         <StatTile
           label="Days of Cover"
           tone={state.days_of_cover < 2 ? 'red' : state.days_of_cover < 4 ? 'orange' : 'green'}
           icon={<CalendarClock />}
-          value={formatNumber(state.days_of_cover, 1)}
+          value={state.days_of_cover}
+          format={(n) => formatNumber(n, 1)}
           caption={state.stockout_date ? `runs out ${formatDate(state.stockout_date, { year: false })}` : 'at current demand'}
         />
         <StatTile
@@ -138,7 +140,7 @@ export default function SKUDetailPage() {
           }
           caption="inventory accuracy"
         />
-      </div>
+      </Stagger>
 
       <div className="grid gap-x-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

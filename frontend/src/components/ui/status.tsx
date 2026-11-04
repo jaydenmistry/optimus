@@ -1,6 +1,8 @@
 'use client';
 
+import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { EASE_OUT } from './motion';
 import type { Tone } from './layout';
 
 const dotColor: Record<Tone, string> = {
@@ -40,7 +42,11 @@ export function StatusDot({ tone, pulse, className }: { tone: Tone; pulse?: bool
  */
 export function StatusBadge({ tone, children, className }: { tone: Tone; children: React.ReactNode; className?: string }) {
   return (
-    <span
+    <motion.span
+      key={`${tone}:${typeof children === 'string' ? children : ''}`}
+      initial={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       className={cn(
         'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-caption font-semibold text-label',
         tint[tone],
@@ -49,7 +55,7 @@ export function StatusBadge({ tone, children, className }: { tone: Tone; childre
     >
       <StatusDot tone={tone} />
       {children}
-    </span>
+    </motion.span>
   );
 }
 
@@ -122,7 +128,8 @@ export function GradeRing({
     >
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-fill/20" />
-        <circle
+        {/* Draws itself from empty, and tweens when the score changes */}
+        <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={r}
@@ -130,8 +137,10 @@ export function GradeRing({
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
-          className={cn(strokeColor[tone], 'transition-[stroke-dashoffset] duration-700 ease-out')}
+          initial={{ strokeDashoffset: c }}
+          animate={{ strokeDashoffset: c * (1 - pct) }}
+          transition={{ duration: 1.1, ease: EASE_OUT, delay: 0.1 }}
+          className={cn(strokeColor[tone], 'transition-[stroke] duration-500')}
         />
       </svg>
       {showLabel && grade && (

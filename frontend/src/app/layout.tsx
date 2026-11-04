@@ -5,6 +5,7 @@ import { themeInitScript } from '@/lib/theme';
 import { Providers } from '@/components/shell/providers';
 import { Footer, NavBar, TabBar } from '@/components/shell/nav';
 import { DemoBanner } from '@/components/simulation/banner';
+import { AmbientGlow } from '@/components/shell/ambient';
 
 export const metadata: Metadata = {
   title: {
@@ -43,7 +44,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </a>
           <NavBar />
           <DemoBanner />
-          <main id="main" className="min-h-[calc(100vh-3.5rem)]">
+          <main id="main" className="relative isolate min-h-[calc(100vh-3.5rem)]">
+            <AmbientGlow />
             {children}
           </main>
           <Footer />
